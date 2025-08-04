@@ -580,11 +580,15 @@ function setupEventListeners() {
     // Editor paste handling
     editor.onDidPaste(() => {
         setTimeout(() => {
-            const content = editor.getValue();
-            const detectedLanguage = languageDetector.fromContent(content);
-            if (detectedLanguage) {
-                document.getElementById('language-select').value = detectedLanguage;
-                monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
+            // Only detect language if current selection is 'plaintext'
+            const currentLanguage = editor.getModel().getLanguageId();
+            if (currentLanguage === 'plaintext') {
+                const content = editor.getValue();
+                const detectedLanguage = languageDetector.fromContent(content);
+                if (detectedLanguage) {
+                    document.getElementById('language-select').value = detectedLanguage;
+                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
+                }
             }
         }, 100);
     });
@@ -592,11 +596,15 @@ function setupEventListeners() {
     // Editor content change handling
     editor.onDidChangeModelContent((e) => {
         if (e.isFlush) {
-            const content = editor.getValue();
-            const detectedLanguage = languageDetector.fromContent(content);
-            if (detectedLanguage) {
-                document.getElementById('language-select').value = detectedLanguage;
-                monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
+            // Only detect language if current selection is 'plaintext'
+            const currentLanguage = editor.getModel().getLanguageId();
+            if (currentLanguage === 'plaintext') {
+                const content = editor.getValue();
+                const detectedLanguage = languageDetector.fromContent(content);
+                if (detectedLanguage) {
+                    document.getElementById('language-select').value = detectedLanguage;
+                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
+                }
             }
         }
     });
