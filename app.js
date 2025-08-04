@@ -580,12 +580,17 @@ function setupEventListeners() {
     // Editor paste handling
     editor.onDidPaste(() => {
         setTimeout(() => {
-            // Only detect language if current selection is 'plaintext'
             const currentLanguage = editor.getModel().getLanguageId();
-            if (currentLanguage === 'plaintext') {
-                const content = editor.getValue();
+            const content = editor.getValue();
+            
+            // Only detect language if:
+            // 1. Current selection is 'plaintext', OR
+            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
+            const isEmptyOrMinimal = content.trim().length < 10;
+            
+            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
                 const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage) {
+                if (detectedLanguage && detectedLanguage !== 'plaintext') {
                     document.getElementById('language-select').value = detectedLanguage;
                     monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
                 }
@@ -596,12 +601,17 @@ function setupEventListeners() {
     // Editor content change handling
     editor.onDidChangeModelContent((e) => {
         if (e.isFlush) {
-            // Only detect language if current selection is 'plaintext'
             const currentLanguage = editor.getModel().getLanguageId();
-            if (currentLanguage === 'plaintext') {
-                const content = editor.getValue();
+            const content = editor.getValue();
+            
+            // Only detect language if:
+            // 1. Current selection is 'plaintext', OR  
+            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
+            const isEmptyOrMinimal = content.trim().length < 10;
+            
+            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
                 const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage) {
+                if (detectedLanguage && detectedLanguage !== 'plaintext') {
                     document.getElementById('language-select').value = detectedLanguage;
                     monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
                 }
