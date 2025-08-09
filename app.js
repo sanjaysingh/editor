@@ -48,6 +48,12 @@ const editorSettings = {
 
 // Security measures - block network requests
 window.addEventListener('load', () => {
+    // Preserve originals for live-share module before blocking
+    try {
+        window.__origFetch = window.fetch?.bind(window);
+        window.__origWebSocket = window.WebSocket;
+    } catch {}
+
     // Block various network request methods
     window.fetch = () => Promise.reject(new Error('Network requests are disabled'));
     window.XMLHttpRequest = function() { throw new Error('Network requests are disabled'); };
