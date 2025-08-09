@@ -85,7 +85,10 @@ button:hover {
 
 /* Icon button styles */
 #open-file-btn,
-#format-btn {
+#format-btn,
+#start-share-btn,
+#join-share-btn,
+#stop-share-btn {
     width: 36px;
     height: 36px;
     padding: 0;
@@ -95,13 +98,17 @@ button:hover {
 }
 
 #open-file-btn i,
-#format-btn i {
+#format-btn i,
+#start-share-btn i,
+#join-share-btn i {
     font-size: 16px;
     color: var(--icon-color);
 }
 
 #open-file-btn:hover i,
-#format-btn:hover i {
+#format-btn:hover i,
+#start-share-btn:hover i,
+#join-share-btn:hover i {
     color: var(--icon-hover-color);
     transform: scale(1.1);
 }
@@ -197,7 +204,8 @@ select {
     #toolbar {
         width: 100%;
         justify-content: center;
-        flex-wrap: wrap;
+        flex-wrap: wrap; /* allow wrapping to next line on small screens */
+        row-gap: 8px;
     }
     
     #toolbar::after {
@@ -211,7 +219,10 @@ select {
     }
     
     #open-file-btn,
-    #format-btn {
+    #format-btn,
+    #start-share-btn,
+    #join-share-btn,
+    #stop-share-btn {
         width: 32px;
         height: 32px;
         padding: 0;
