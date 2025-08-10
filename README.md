@@ -81,9 +81,6 @@ Worker->>DO: stop {hostToken}
 DO-->>Viewer: ended
 ```
 
-> Note: If Mermaid doesn’t render in your preview, view this README on GitHub or use a Mermaid-enabled preview extension.
-
-
 ### UI Quickstart
 - Start: click the signal icon to start Live Share; copy the link from the dialog
 - Join: click the link or use the link icon and enter the key (format `ABC-234`)
