@@ -81,24 +81,8 @@ Worker->>DO: stop {hostToken}
 DO-->>Viewer: ended
 ```
 
-> Note: If your Markdown preview does not support Mermaid, view this README on GitHub (which supports Mermaid), or install a Mermaid-capable preview extension. As a fallback, see the ASCII diagram below.
+> Note: If Mermaid doesn’t render in your preview, view this README on GitHub or use a Mermaid-enabled preview extension.
 
-```text
-Host (Browser)             Cloudflare Worker            Durable Object (Room)         Viewer (Browser)
------------------          -------------------          ------------------------      -----------------
-POST /api/share/start  ->  create session  ->           /init {key,hostToken,ip}
-                           <- {key,hostToken,viewerUrl,ttl}
-WS /ws/:key?role=host&token=...
-                           upgrade (host)  ->           accept host WS
-
-                          GET /api/share/snapshot/:key  -> snapshot
-                                                         <- {active,content,version}
-                          WS /ws/:key?role=viewer  ->    upgrade (viewer)             <- initial state
-
-send state {content,selection,version}  ->               broadcast to viewers  ->      update view
-
-POST /api/share/stop  ->  stop {hostToken}  ->           end room                ->    ended
-```
 
 ### UI Quickstart
 - Start: click the signal icon to start Live Share; copy the link from the dialog
