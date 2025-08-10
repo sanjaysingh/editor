@@ -75,8 +75,23 @@
   let version = 0;
   let sendTimer = null;
 
+  // Normalize a user-entered key: allow ABC234 and convert to ABC-234
+  function normalizeKey(raw){
+    const s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (s.length >= 3) {
+      const head = s.slice(0, 3).replace(/[IO]/g, '');
+      const tail = s.slice(3).replace(/[^2-9]/g, ''); // digits 2-9 only
+      const merged = (head + tail).slice(0, 6);
+      if (merged.length === 6) return merged.slice(0,3) + '-' + merged.slice(3);
+      if (merged.length > 3) return merged.slice(0,3) + '-' + merged.slice(3);
+      return merged;
+    }
+    return s;
+  }
+
   function validateKey(key){
-    return /^[A-HJ-NP-Z]{3}-[2-9]{3}$/.test((key||'').trim().toUpperCase());
+    const formatted = normalizeKey(key);
+    return /^[A-HJ-NP-Z]{3}-[2-9]{3}$/.test((formatted||'').trim());
   }
 
   function setLiveIndicator(text, show){
@@ -212,11 +227,11 @@
   }
 
   function joinByKey(key){
-    key = (key||'').toUpperCase();
-    if (!validateKey(key)) { alert('Invalid key. Use format ABC-234'); return; }
-    session = { key, hostToken: null, role: 'viewer', ws: null };
+    const formatted = normalizeKey(key);
+    if (!validateKey(formatted)) { alert('Invalid key. Use format ABC234 or ABC-234'); return; }
+    session = { key: formatted, hostToken: null, role: 'viewer', ws: null };
     setButtonsForRole('viewer');
-    api.snapshot(key).then((snap) => {
+    api.snapshot(formatted).then((snap) => {
       if (!snap.active) {
         alert('Session not active');
         return;
@@ -224,7 +239,7 @@
       if (window.editor && typeof snap.content === 'string') {
         window.editor.setValue(snap.content);
       }
-      connectViewer(key);
+      connectViewer(formatted);
     }).catch(() => alert('Failed to join session'));
   }
 
@@ -242,11 +257,25 @@
   if (joinCancelBtn) joinCancelBtn.addEventListener('click', closeJoinModal);
   if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => { const k = joinKeyInput.value; closeJoinModal(); joinByKey(k); });
   joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinConfirmBtn.click(); }});
+  // Auto-format join key input so users can type ABC234 without '-'
+  joinKeyInput?.addEventListener('input', () => {
+    const raw = joinKeyInput.value || '';
+    const up = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const head = up.slice(0,3).replace(/[IO]/g, '');
+    const tail = up.slice(3,6).replace(/[^2-9]/g, '');
+    const merged = (head + tail).slice(0,6);
+    if (merged.length <= 3) {
+      joinKeyInput.value = merged;
+    } else {
+      joinKeyInput.value = merged.slice(0,3) + '-' + merged.slice(3);
+    }
+  });
 
   // Auto-join if URL has ?share=KEY
   const urlParams = new URLSearchParams(location.search);
   const initialKey = urlParams.get('share');
-  if (validateKey(initialKey)) {
-    joinByKey(initialKey);
+  const normalizedInitial = normalizeKey(initialKey);
+  if (validateKey(normalizedInitial)) {
+    joinByKey(normalizedInitial);
   }
 })(); 
