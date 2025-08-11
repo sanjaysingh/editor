@@ -130,9 +130,15 @@ select {
 
 /* Editor container */
 #editor-container {
-    width: 100vw;
-    height: calc(100vh - 50px - 25px); /* Account for status bar */
+    width: 100%;
+    height: calc(var(--app-vh, 100vh) - 50px - 25px);
     position: relative;
+}
+
+@supports (height: 100dvh) {
+    #editor-container {
+        height: calc(100dvh - 50px - 25px);
+    }
 }
 
 /* File input hidden by default */
@@ -233,7 +239,7 @@ select {
     }
 
     #editor-container {
-        height: calc(100vh - 90px - 25px); /* Account for taller header and status bar */
+        height: calc(var(--app-vh, 100vh) - 90px - 25px);
     }
 } 
 

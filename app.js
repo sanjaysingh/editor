@@ -1,5 +1,16 @@
 let editor;
 
+// Fix iOS Safari 100vh issues by setting a custom --app-vh variable
+(function setViewportUnitFix(){
+  function updateVh(){
+    const vh = window.innerHeight;
+    document.documentElement.style.setProperty('--app-vh', vh + 'px');
+  }
+  updateVh();
+  window.addEventListener('resize', updateVh);
+  window.addEventListener('orientationchange', updateVh);
+})();
+
 // Centralized language configuration
 const supportedLanguages = {
     plaintext: { displayName: 'Plain Text' },
@@ -185,7 +196,7 @@ const languageDetector = {
             patterns: [/^package\s+main/m, /import\s+"\w+"/, /import\s+\(.*\)/, /func\s+main\s*\(\)/, /func\s+\w+\s*\(.*\)/, /\w+\s+:=\s+/, /type\s+\w+\s+struct\s*{/]
         },
         json: {
-            patterns: [/^[\s\n]*[{\[][\s\n]*"[^"]+"\s*:/, /^[\s\n]*\[[\s\n]*(?:{|"[^"]*")/, /"[\w-]+"\s*:\s*(?:null|true|false|"[^"]*"|\d+)/]
+            patterns: [/^[\s\n]*[{"][\s\n]*"[^"]+"\s*:/, /^[\s\n]*\[[\s\n]*(?:{|"[^"]*")/, /"[\w-]+"\s*:\s*(?:null|true|false|"[^"]*"|\d+)/]
         },
         sql: {
             keywords: ['SELECT', 'INSERT INTO', 'UPDATE', 'DELETE FROM', 'WHERE', 'JOIN', 'CREATE TABLE', 'ALTER TABLE', 'DROP TABLE', 'GROUP BY', 'ORDER BY', 'LEFT JOIN', 'RIGHT JOIN', 'INNER JOIN', 'UNION', 'HAVING'],
@@ -193,7 +204,7 @@ const languageDetector = {
         },
         powershell: {
             keywords: ['function', 'param', '$PSScriptRoot', 'Write-Host', 'Get-Process', 'Set-Location', 'if', 'else', 'foreach', 'while', 'try', 'catch', 'finally', '$true', '$false', '$null', 'param(', 'begin {', 'process {', 'end {'],
-            patterns: [/$\w+/, /function\s+\w+-\w+/, /\[Parameter\(.*\)\]/, /\[CmdletBinding\(\)\]/, /Write-(?:Host|Output|Warning|Error)/, /begin\s*{/, /process\s*{/, /end\s*{/]
+            patterns: [/\$\w+/, /function\s+\w+-\w+/, /\[Parameter\(.*\)\]/, /\[CmdletBinding\(\)\]/, /Write-(?:Host|Output|Warning|Error)/, /begin\s*{/, /process\s*{/, /end\s*{/]
         },
         yaml: {
             patterns: [/^\s*- /m, /^\s*\w+:\s/m, /^---[ \t]*$/m, /^\s*-\s*name:/m, /^\s*-\s*hosts:/m]

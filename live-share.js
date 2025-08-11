@@ -137,6 +137,17 @@
     ed.updateOptions({ readOnly: disabled });
   }
 
+  function forceLayoutAndScrollTop(){
+    try {
+      const ed = getEditor();
+      // Nudge scroll to reveal top panel on iOS, then back
+      window.scrollTo(0, 1);
+      setTimeout(() => window.scrollTo(0, 0), 50);
+      // Relayout Monaco after viewport changes
+      setTimeout(() => { try { ed?.layout?.(); } catch {} }, 80);
+    } catch {}
+  }
+
   function connectHost(key, hostToken){
     const url = api.wsUrl(key, 'host', hostToken);
     session.ws = new SafeWebSocket(url);
@@ -160,6 +171,7 @@
     session.ws.onopen = () => {
       setLiveIndicator(`LIVE (Viewing: ${key})`, true);
       disableEditing(true);
+      forceLayoutAndScrollTop();
     };
     session.ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
@@ -182,6 +194,7 @@
         if (session.ws) try { session.ws.close(); } catch {}
         session = { key: null, hostToken: null, role: 'idle', ws: null };
         setButtonsForRole('idle');
+        forceLayoutAndScrollTop();
       }
     };
     session.ws.onclose = () => {};
@@ -213,6 +226,7 @@
         ed.onDidChangeModelContent(() => scheduleSend());
         ed.onDidChangeCursorSelection(() => scheduleSend());
       }
+      forceLayoutAndScrollTop();
     }).catch((e) => alert(e.message || 'Failed to start live share'));
   }
 
@@ -223,6 +237,7 @@
       session = { key: null, hostToken: null, role: 'idle', ws: null };
       setLiveIndicator('', false);
       setButtonsForRole('idle');
+      forceLayoutAndScrollTop();
     });
   }
 
