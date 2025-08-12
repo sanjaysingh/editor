@@ -57,9 +57,7 @@
   };
 
   // UI elements
-  const startBtn = document.getElementById('start-share-btn');
-  const stopBtn = document.getElementById('stop-share-btn');
-  const joinBtn = document.getElementById('join-share-btn');
+  const liveMenuBtn = document.getElementById('live-share-menu-btn');
   const liveEl = document.getElementById('live-indicator');
   const shareModal = document.getElementById('share-modal');
   const shareKeyEl = document.getElementById('share-key');
@@ -74,6 +72,7 @@
   let session = { key: null, hostToken: null, role: 'idle', ws: null };
   let version = 0;
   let sendTimer = null;
+  let liveMenuEl = null;
 
   // Normalize a user-entered key: allow ABC234 and convert to ABC-234
   function normalizeKey(raw){
@@ -101,19 +100,9 @@
   }
 
   function setButtonsForRole(role){
-    if (!startBtn || !stopBtn) return;
+    // replaced by live menu, keep indicator only
     if (role === 'host') {
-      startBtn.style.display = 'none';
-      stopBtn.style.display = 'inline-block';
-      joinBtn.style.display = 'none';
-    } else if (role === 'viewer') {
-      startBtn.style.display = 'inline-block';
-      stopBtn.style.display = 'none';
-      joinBtn.style.display = 'inline-block';
-    } else {
-      startBtn.style.display = 'inline-block';
-      stopBtn.style.display = 'none';
-      joinBtn.style.display = 'inline-block';
+      // nothing to toggle here
     }
   }
 
@@ -154,10 +143,8 @@
   function forceLayoutAndScrollTop(){
     try {
       const ed = getEditor();
-      // Nudge scroll to reveal top panel on iOS, then back
       window.scrollTo(0, 1);
       setTimeout(() => window.scrollTo(0, 0), 50);
-      // Relayout Monaco after viewport changes
       setTimeout(() => { try { ed?.layout?.(); } catch {} }, 80);
     } catch {}
   }
@@ -241,10 +228,8 @@
   function startLiveShare(){
     api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
       session = { key, hostToken, role: 'host', ws: null };
-      setButtonsForRole('host');
       openShareModal(key);
       connectHost(key, hostToken);
-      // Hook editor changes
       const ed = getEditor();
       if (ed) {
         ed.onDidChangeModelContent(() => scheduleSend());
@@ -261,7 +246,6 @@
       if (session.ws) try { session.ws.close(); } catch {}
       session = { key: null, hostToken: null, role: 'idle', ws: null };
       setLiveIndicator('', false);
-      setButtonsForRole('idle');
       forceLayoutAndScrollTop();
       focusEditorSoon();
     });
@@ -271,7 +255,6 @@
     const formatted = normalizeKey(key);
     if (!validateKey(formatted)) { alert('Invalid key. Use format ABC234 or ABC-234'); return; }
     session = { key: formatted, hostToken: null, role: 'viewer', ws: null };
-    setButtonsForRole('viewer');
     api.snapshot(formatted).then((snap) => {
       if (!snap.active) {
         alert('Session not active');
@@ -284,10 +267,60 @@
     }).catch(() => alert('Failed to join session'));
   }
 
+  function openLiveMenu(){
+    closeLiveMenu();
+    const menu = document.createElement('div');
+    menu.className = 'live-menu';
+    if (session.role === 'host') {
+      menu.innerHTML = `
+        <button type="button" data-action="stop"><i class="fas fa-stop-circle"></i> Stop Live Share</button>
+        <div class="sep"></div>
+        <button type="button" data-action="copy"><i class="fas fa-link"></i> Copy Share Link</button>
+      `;
+    } else {
+      menu.innerHTML = `
+        <button type="button" data-action="start"><i class="fas fa-play"></i> Start Live Share</button>
+        <button type="button" data-action="join"><i class="fas fa-link"></i> Join Session</button>
+      `;
+    }
+    document.body.appendChild(menu);
+    const rect = liveMenuBtn.getBoundingClientRect();
+    menu.style.top = Math.round(rect.bottom + window.scrollY + 8) + 'px';
+    menu.style.right = Math.max(8, Math.round(window.innerWidth - rect.right)) + 'px';
+    liveMenuEl = menu;
+
+    menu.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      const action = btn.getAttribute('data-action');
+      if (action === 'start') startLiveShare();
+      if (action === 'join') openJoinModal();
+      if (action === 'stop') stopLiveShare();
+      if (action === 'copy') { try { navigator.clipboard.writeText(shareLinkEl.value); } catch {} }
+      closeLiveMenu();
+    });
+
+    setTimeout(() => {
+      function outside(e){
+        if (!menu.contains(e.target) && e.target !== liveMenuBtn) {
+          closeLiveMenu();
+          document.removeEventListener('click', outside, true);
+        }
+      }
+      document.addEventListener('click', outside, true);
+    }, 0);
+  }
+
+  function closeLiveMenu(){
+    if (liveMenuEl && liveMenuEl.parentNode) liveMenuEl.parentNode.removeChild(liveMenuEl);
+    liveMenuEl = null;
+  }
+
   // Wire UI
-  if (startBtn) startBtn.addEventListener('click', startLiveShare);
-  if (stopBtn) stopBtn.addEventListener('click', stopLiveShare);
-  if (joinBtn) joinBtn.addEventListener('click', openJoinModal);
+  if (liveMenuBtn) liveMenuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (liveMenuEl) closeLiveMenu(); else openLiveMenu();
+  });
   if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(shareLinkEl.value).then(() => {
       copyLinkBtn.textContent = 'Copied!';
@@ -298,7 +331,6 @@
   if (joinCancelBtn) joinCancelBtn.addEventListener('click', closeJoinModal);
   if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => { const k = joinKeyInput.value; closeJoinModal(); joinByKey(k); });
   joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinConfirmBtn.click(); }});
-  // Auto-format join key input so users can type ABC234 without '-'
   joinKeyInput?.addEventListener('input', () => {
     const raw = joinKeyInput.value || '';
     const up = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
