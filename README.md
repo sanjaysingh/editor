@@ -111,20 +111,20 @@ cd server
 wrangler dev
 ```
 
-2) Serve the static client (repo root) on another port, e.g. 8080
+2) Serve the static client (`client/`) on another port, e.g. 8080
 
 ```sh
 # from repo root
-npx http-server -p 8080 -c-1
+npx http-server client -p 8080 -c-1
 ```
 
-3) Point the client at your Worker origin (if not same-origin). In `index.html` set:
+3) Point the client at your Worker origin (if not same-origin). In `client/index.html` set:
 
 ```html
 <meta name="live-share-base" content="http://127.0.0.1:8787">
 ```
 
-Alternatively, you can set a global before loading `live-share.js`:
+Alternatively, you can set a global before loading `client/live-share.js`:
 
 ```html
 <script>window.LIVE_SHARE_BASE = 'http://127.0.0.1:8787';</script>
