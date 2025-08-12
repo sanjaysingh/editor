@@ -317,10 +317,22 @@
   }
 
   // Wire UI
-  if (liveMenuBtn) liveMenuBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
+  function toggleLiveMenu(e){
+    if (e) e.stopPropagation();
     if (liveMenuEl) closeLiveMenu(); else openLiveMenu();
-  });
+  }
+  if (liveMenuBtn) {
+    liveMenuBtn.addEventListener('click', toggleLiveMenu);
+    liveMenuBtn.addEventListener('touchend', (e) => { e.preventDefault(); toggleLiveMenu(e); }, { passive: false });
+    liveMenuBtn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') toggleLiveMenu(e); });
+  }
+  // Fallback for legacy buttons if present (cached HTML)
+  const legacyStartBtn = document.getElementById('start-share-btn');
+  const legacyJoinBtn = document.getElementById('join-share-btn');
+  const legacyStopBtn = document.getElementById('stop-share-btn');
+  if (legacyStartBtn) legacyStartBtn.addEventListener('click', () => { openLiveMenu(); });
+  if (legacyJoinBtn) legacyJoinBtn.addEventListener('click', () => { openLiveMenu(); });
+  if (legacyStopBtn) legacyStopBtn.addEventListener('click', () => { stopLiveShare(); });
   if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(shareLinkEl.value).then(() => {
       copyLinkBtn.textContent = 'Copied!';
