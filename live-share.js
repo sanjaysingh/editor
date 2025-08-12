@@ -122,10 +122,24 @@
     const link = `${location.origin}/?share=${encodeURIComponent(key)}`;
     shareLinkEl.value = link;
     shareModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
   }
-  function closeShareModal(){ shareModal.style.display = 'none'; }
-  function openJoinModal(){ joinModal.style.display = 'flex'; joinKeyInput.value = ''; joinKeyInput.focus(); }
-  function closeJoinModal(){ joinModal.style.display = 'none'; }
+  function closeShareModal(){
+    shareModal.style.display = 'none';
+    document.body.style.overflow = '';
+    focusEditorSoon();
+  }
+  function openJoinModal(){
+    joinModal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    joinKeyInput.value = '';
+    setTimeout(() => joinKeyInput.focus(), 0);
+  }
+  function closeJoinModal(){
+    joinModal.style.display = 'none';
+    document.body.style.overflow = '';
+    focusEditorSoon();
+  }
 
   function getEditor(){
     try { return (typeof editor !== 'undefined') ? editor : window.editor; } catch(_) { return window.editor; }
@@ -146,6 +160,14 @@
       // Relayout Monaco after viewport changes
       setTimeout(() => { try { ed?.layout?.(); } catch {} }, 80);
     } catch {}
+  }
+
+  function focusEditorSoon(){
+    const ed = getEditor();
+    setTimeout(() => {
+      try { ed?.focus?.(); } catch {}
+      forceLayoutAndScrollTop();
+    }, 30);
   }
 
   function connectHost(key, hostToken){
@@ -172,6 +194,7 @@
       setLiveIndicator(`LIVE (Viewing: ${key})`, true);
       disableEditing(true);
       forceLayoutAndScrollTop();
+      focusEditorSoon();
     };
     session.ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
@@ -195,6 +218,7 @@
         session = { key: null, hostToken: null, role: 'idle', ws: null };
         setButtonsForRole('idle');
         forceLayoutAndScrollTop();
+        focusEditorSoon();
       }
     };
     session.ws.onclose = () => {};
@@ -227,6 +251,7 @@
         ed.onDidChangeCursorSelection(() => scheduleSend());
       }
       forceLayoutAndScrollTop();
+      focusEditorSoon();
     }).catch((e) => alert(e.message || 'Failed to start live share'));
   }
 
@@ -238,6 +263,7 @@
       setLiveIndicator('', false);
       setButtonsForRole('idle');
       forceLayoutAndScrollTop();
+      focusEditorSoon();
     });
   }
 
