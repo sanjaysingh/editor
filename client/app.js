@@ -313,14 +313,37 @@ async function handleFile(file) {
 // Format code in editor
 async function formatCode() {
     try {
+        const model = editor.getModel();
+        if (!model) return;
+        const languageId = model.getLanguageId();
+
+        // Special-case JSON to ensure pretty-printing even if built-in formatter is limited
+        if (languageId === 'json') {
+            try {
+                const text = model.getValue();
+                const { insertSpaces, tabSize } = model.getOptions ? model.getOptions() : { insertSpaces: true, tabSize: editorSettings.tabSize };
+                const indent = insertSpaces ? ' '.repeat(tabSize) : '\t';
+                const eol = model.getEOL ? model.getEOL() : '\n';
+                const parsed = JSON.parse(text);
+                let formatted = JSON.stringify(parsed, null, indent);
+                if (eol !== '\n') {
+                    formatted = formatted.replace(/\n/g, eol);
+                }
+                model.setValue(formatted);
+                return;
+            } catch {}
+        }
+
+        // Use Monaco formatters for other languages
         await editor.getAction('editor.action.formatDocument').run();
     } catch (error) {
         console.error('Formatting failed:', error);
         const currentModel = editor.getModel();
         if (currentModel) {
+            const { insertSpaces, tabSize } = currentModel.getOptions ? currentModel.getOptions() : { insertSpaces: true, tabSize: editorSettings.tabSize };
             const edits = await monaco.languages.getFormattingEditsForDocument(currentModel, {
-                insertSpaces: true,
-                tabSize: editorSettings.tabSize
+                insertSpaces,
+                tabSize
             });
             if (edits) {
                 currentModel.pushEditOperations([], edits, null);
@@ -335,29 +358,33 @@ function registerFormatters() {
     monaco.languages.registerDocumentFormattingEditProvider('html', {
         provideDocumentFormattingEdits: function(model) {
             const text = model.getValue();
+            const { insertSpaces, tabSize } = model.getOptions ? model.getOptions() : { insertSpaces: true, tabSize: editorSettings.tabSize };
+            const indentUnit = insertSpaces ? ' '.repeat(tabSize) : '\t';
+            const eol = model.getEOL ? model.getEOL() : '\n';
             let formatted = '';
             let indent = 0;
-            const lines = text.split(/[\r\n]+/);
+            const normalized = text.replace(/>\s*</g, '>' + eol + '<');
+            const lines = normalized.split(/\r\n|\r|\n/);
 
             lines.forEach(line => {
                 line = line.trim();
                 if (line.endsWith('/>')) {
-                    formatted += '  '.repeat(indent) + line + '\n';
+                    formatted += indentUnit.repeat(indent) + line + eol;
                 }
-                else if (line.match(/<\/[^>]+>/)) {
+                else if (line.match(/<\/[\w-:.]+>/)) {
                     if (!line.match(/<[^/][^>]*>/)) {
                         indent--;
                     }
-                    formatted += '  '.repeat(Math.max(0, indent)) + line + '\n';
+                    formatted += indentUnit.repeat(Math.max(0, indent)) + line + eol;
                 }
                 else if (line.match(/<[^/][^>]*>/)) {
-                    formatted += '  '.repeat(indent) + line + '\n';
-                    if (!line.match(/<\/[^>]+>/) && !line.endsWith('/>')) {
+                    formatted += indentUnit.repeat(indent) + line + eol;
+                    if (!line.match(/<\/[\w-:.]+>/) && !line.endsWith('/>')) {
                         indent++;
                     }
                 }
                 else {
-                    formatted += '  '.repeat(indent) + line + '\n';
+                    formatted += indentUnit.repeat(indent) + line + eol;
                 }
             });
 
@@ -372,28 +399,44 @@ function registerFormatters() {
     monaco.languages.registerDocumentFormattingEditProvider('xml', {
         provideDocumentFormattingEdits: function(model) {
             const text = model.getValue();
+            const { insertSpaces, tabSize } = model.getOptions ? model.getOptions() : { insertSpaces: true, tabSize: editorSettings.tabSize };
+            const indentUnit = insertSpaces ? ' '.repeat(tabSize) : '\t';
+            const eol = model.getEOL ? model.getEOL() : '\n';
             let formatted = '';
             let indent = 0;
-            const lines = text.split(/[\r\n]+/);
+            // Expand minified XML by inserting newlines between tags first
+            const normalized = text.replace(/>\s*</g, '>' + eol + '<');
+            const lines = normalized.split(/\r\n|\r|\n/);
 
-            lines.forEach(line => {
-                line = line.trim();
-                if (line.endsWith('/>')) {
-                    formatted += '  '.repeat(indent) + line + '\n';
+            lines.forEach(rawLine => {
+                let line = rawLine.trim();
+                if (!line) {
+                    return;
                 }
-                else if (line.startsWith('</')) {
+                // XML declaration or comments stay at current level
+                if (/^<\?/.test(line) || /^<!--/.test(line) || /^<!\[CDATA\[/.test(line)) {
+                    formatted += indentUnit.repeat(indent) + line + eol;
+                    return;
+                }
+                // Closing tag -> decrease first
+                if (/^<\//.test(line)) {
                     indent--;
-                    formatted += '  '.repeat(Math.max(0, indent)) + line + '\n';
+                    formatted += indentUnit.repeat(Math.max(0, indent)) + line + eol;
+                    return;
                 }
-                else if (line.startsWith('<') && !line.startsWith('<?')) {
-                    formatted += '  '.repeat(indent) + line + '\n';
-                    if (!line.includes('</')) {
-                        indent++;
-                    }
+                // Self-closing tag
+                if (/^<[^!?][^>]*\/>\s*$/.test(line)) {
+                    formatted += indentUnit.repeat(indent) + line + eol;
+                    return;
                 }
-                else {
-                    formatted += '  '.repeat(indent) + line + '\n';
+                // Opening tag
+                if (/^<[^!?/][^>]*>\s*$/.test(line)) {
+                    formatted += indentUnit.repeat(indent) + line + eol;
+                    indent++;
+                    return;
                 }
+                // Text node or mixed content
+                formatted += indentUnit.repeat(indent) + line + eol;
             });
 
             return [{
@@ -403,7 +446,29 @@ function registerFormatters() {
         }
     });
     
-    // JSON formatter is built-in, no need to register
+    // JSON formatter (pretty-print with correct indentation and newlines)
+    monaco.languages.registerDocumentFormattingEditProvider('json', {
+        provideDocumentFormattingEdits: function(model) {
+            const text = model.getValue();
+            try {
+                const value = JSON.parse(text);
+                const { insertSpaces, tabSize } = model.getOptions ? model.getOptions() : { insertSpaces: true, tabSize: editorSettings.tabSize };
+                const indent = insertSpaces ? ' '.repeat(tabSize) : '\t';
+                const eol = model.getEOL ? model.getEOL() : '\n';
+                let formatted = JSON.stringify(value, null, indent);
+                if (eol !== '\n') {
+                    formatted = formatted.replace(/\n/g, eol);
+                }
+                return [{
+                    range: model.getFullModelRange(),
+                    text: formatted
+                }];
+            } catch (e) {
+                // Invalid JSON, do not modify
+                return [];
+            }
+        }
+    });
 }
 
 // Register keyboard shortcuts and commands
