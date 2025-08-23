@@ -7,6 +7,7 @@ export class RoomDurableObject {
     this.room = {
       content: "",
       selection: { start: 0, end: 0 },
+      language: "plaintext",
       version: 0,
       hostToken: null,
       hostConnected: false,
@@ -66,6 +67,7 @@ export class RoomDurableObject {
       active: this.room.active,
       content: this.room.content,
       selection: this.room.selection,
+      language: this.room.language,
       version: this.room.version
     };
     return json(body, 200, corsHeaders(this.env, request));
@@ -135,9 +137,10 @@ export class RoomDurableObject {
             if (!this.room.active) return;
             this.room.content = String(msg.content ?? "");
             this.room.selection = msg.selection || { start: 0, end: 0 };
+            this.room.language = String(msg.language ?? this.room.language ?? "plaintext");
             this.room.version = Number(msg.version || (this.room.version + 1));
             await this.state.storage.put("room", this.room);
-            const payload = JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, version: this.room.version });
+            const payload = JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version });
             for (const ws of this.viewers) {
               try { ws.send(payload); } catch {}
             }
@@ -170,7 +173,7 @@ export class RoomDurableObject {
     server.accept();
     // send initial state
     try {
-      server.send(JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, version: this.room.version }));
+      server.send(JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version }));
     } catch {}
     this.viewers.add(server);
     server.addEventListener("close", () => {

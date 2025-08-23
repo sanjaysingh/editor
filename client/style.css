@@ -63,6 +63,7 @@ body {
     display: flex;
     gap: var(--spacing-sm);
     align-items: center;
+    margin-left: auto;
 }
 
 /* Controls */

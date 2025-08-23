@@ -662,6 +662,9 @@ function setupEventListeners() {
     // Editor paste handling
     editor.onDidPaste(() => {
         setTimeout(() => {
+            // Skip auto-detection if in live share viewer mode
+            if (window.liveShareRole === 'viewer') return;
+            
             const currentLanguage = editor.getModel().getLanguageId();
             const content = editor.getValue();
             
@@ -683,6 +686,9 @@ function setupEventListeners() {
     // Editor content change handling
     editor.onDidChangeModelContent((e) => {
         if (e.isFlush) {
+            // Skip auto-detection if in live share viewer mode
+            if (window.liveShareRole === 'viewer') return;
+            
             const currentLanguage = editor.getModel().getLanguageId();
             const content = editor.getValue();
             
@@ -705,6 +711,10 @@ function setupEventListeners() {
     document.getElementById('language-select').addEventListener('change', (e) => {
         if (e.target.value) {
             monaco.editor.setModelLanguage(editor.getModel(), e.target.value);
+            // Trigger live share sync if host
+            if (window.liveShareRole === 'host' && window.liveShareScheduleSend) {
+                window.liveShareScheduleSend();
+            }
         }
     });
     

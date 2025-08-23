@@ -100,10 +100,28 @@
   }
 
   function setButtonsForRole(role){
-    // replaced by live menu, keep indicator only
-    if (role === 'host') {
-      // nothing to toggle here
+    // Hide toolbar buttons when viewing; show otherwise (except language select)
+    const hide = role === 'viewer';
+    const idsToToggle = [
+      'open-file-btn',
+      'format-btn',
+      'file-path',
+      'file-input'
+    ];
+    idsToToggle.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = hide ? 'none' : '';
+    });
+    
+    // Handle language dropdown - show but disable for viewers
+    const langSelect = document.getElementById('language-select');
+    if (langSelect) {
+      langSelect.style.display = '';  // Always show
+      langSelect.disabled = hide;     // Disable for viewers
     }
+    
+    // Set global role for app.js to check
+    window.liveShareRole = role;
   }
 
   function openShareModal(key){
@@ -162,6 +180,7 @@
     session.ws = new SafeWebSocket(url);
     session.ws.onopen = () => {
       setLiveIndicator(`LIVE (Host: ${key})`, true);
+      setButtonsForRole('host');
     };
     session.ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
@@ -180,6 +199,7 @@
     session.ws.onopen = () => {
       setLiveIndicator(`LIVE (Viewing: ${key})`, true);
       disableEditing(true);
+      setButtonsForRole('viewer');
       forceLayoutAndScrollTop();
       focusEditorSoon();
     };
@@ -193,6 +213,15 @@
             const pos = ed.getScrollTop();
             ed.setValue(msg.content);
             ed.setScrollTop(pos);
+          }
+          // Update language if it changed
+          if (msg.language && ed.getModel().getLanguageId() !== msg.language) {
+            monaco.editor.setModelLanguage(ed.getModel(), msg.language);
+            // Update the dropdown to reflect the new language
+            const langSelect = document.getElementById('language-select');
+            if (langSelect) {
+              langSelect.value = msg.language;
+            }
           }
         }
         version = msg.version || version + 1;
@@ -219,13 +248,18 @@
       if (!session.ws || session.role !== 'host' || !ed) return;
       const content = ed.getValue();
       const selection = ed.getSelection();
+      const language = ed.getModel().getLanguageId();
       version += 1;
-      const payload = { type: 'state', content, selection: selection ? { start: selection.startColumn, end: selection.endColumn } : { start: 0, end: 0 }, version };
+      const payload = { type: 'state', content, selection: selection ? { start: selection.startColumn, end: selection.endColumn } : { start: 0, end: 0 }, language, version };
       try { session.ws.send(JSON.stringify(payload)); } catch {}
     }, 60);
   }
 
+  // Expose scheduleSend globally for app.js
+  window.liveShareScheduleSend = scheduleSend;
+
   function startLiveShare(){
+    if (session.role === 'viewer') { alert('Viewers cannot start a new live share.'); return; }
     api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
       session = { key, hostToken, role: 'host', ws: null };
       openShareModal(key);
@@ -234,7 +268,9 @@
       if (ed) {
         ed.onDidChangeModelContent(() => scheduleSend());
         ed.onDidChangeCursorSelection(() => scheduleSend());
+        ed.onDidChangeModelLanguage(() => scheduleSend());
       }
+      setButtonsForRole('host');
       forceLayoutAndScrollTop();
       focusEditorSoon();
     }).catch((e) => alert(e.message || 'Failed to start live share'));
@@ -246,6 +282,7 @@
       if (session.ws) try { session.ws.close(); } catch {}
       session = { key: null, hostToken: null, role: 'idle', ws: null };
       setLiveIndicator('', false);
+      setButtonsForRole('idle');
       forceLayoutAndScrollTop();
       focusEditorSoon();
     });
@@ -255,16 +292,23 @@
     const formatted = normalizeKey(key);
     if (!validateKey(formatted)) { alert('Invalid key. Use format ABC234 or ABC-234'); return; }
     session = { key: formatted, hostToken: null, role: 'viewer', ws: null };
+    setButtonsForRole('viewer');
     api.snapshot(formatted).then((snap) => {
       if (!snap.active) {
         alert('Session not active');
+        session = { key: null, hostToken: null, role: 'idle', ws: null };
+        setButtonsForRole('idle');
         return;
       }
       if (window.editor && typeof snap.content === 'string') {
         window.editor.setValue(snap.content);
       }
       connectViewer(formatted);
-    }).catch(() => alert('Failed to join session'));
+    }).catch(() => {
+      alert('Failed to join session');
+      session = { key: null, hostToken: null, role: 'idle', ws: null };
+      setButtonsForRole('idle');
+    });
   }
 
   function openLiveMenu(){
@@ -276,6 +320,10 @@
         <button type="button" data-action="stop"><i class="fas fa-stop-circle"></i> Stop Live Share</button>
         <div class="sep"></div>
         <button type="button" data-action="copy"><i class="fas fa-link"></i> Copy Share Link</button>
+      `;
+    } else if (session.role === 'viewer') {
+      menu.innerHTML = `
+        <button type="button" data-action="join"><i class="fas fa-link"></i> Join Session</button>
       `;
     } else {
       menu.innerHTML = `

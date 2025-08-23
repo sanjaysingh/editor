@@ -133,7 +133,7 @@ Alternatively, you can set a global before loading `client/live-share.js`:
 ### Deploy
 ```sh
 cd server
-wrangler publish
+wrangler deploy
 ```
 - Bind the Durable Object namespace in Cloudflare if prompted (Wrangler migrations included)
 - Set production site origin(s) in `ALLOWED_ORIGINS`

@@ -8,8 +8,8 @@ bindings = [
 ]
 
 [[migrations]]
- tag = "v1-sqlite"
- new_sqlite_classes = ["RoomDurableObject"]
+tag = "v1"
+new_classes = ["RoomDurableObject"]
 
 [vars]
 # Comma-separated list of allowed origins for CORS and WS Origin checks
