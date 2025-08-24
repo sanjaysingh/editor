@@ -302,6 +302,14 @@
       }
       if (window.editor && typeof snap.content === 'string') {
         window.editor.setValue(snap.content);
+        // Apply language from snapshot if available
+        if (snap.language && window.editor.getModel().getLanguageId() !== snap.language) {
+          monaco.editor.setModelLanguage(window.editor.getModel(), snap.language);
+          const langSelect = document.getElementById('language-select');
+          if (langSelect) {
+            langSelect.value = snap.language;
+          }
+        }
       }
       connectViewer(formatted);
     }).catch(() => {

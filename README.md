@@ -44,8 +44,9 @@ A lightweight, browser-based code editor that works completely offline — with 
 ### Overview
 - Host starts a session to generate a short key like `ABC-234` and a sharable URL
 - Viewers join with the key or open the URL; their editor becomes read-only
-- Host’s content updates are broadcast live to all viewers via WebSockets
-- Host can stop the session at any time (viewers see “Session ended”)
+- Host's content, cursor position, and language selection are broadcast live to all viewers via WebSockets
+- Viewers automatically receive language changes from the host (language dropdown is disabled for viewers)
+- Host can stop the session at any time (viewers see "Session ended")
 
 ### How it works
 ```mermaid
@@ -67,13 +68,13 @@ DO-->>Host: accept
 
 Viewer->>Worker: GET /api/share/snapshot/:key
 Worker->>DO: snapshot
-DO-->>Viewer: { active, content, version }
+DO-->>Viewer: { active, content, selection, language, version }
 
 Viewer->>Worker: WS /ws/:key?role=viewer
 Worker->>DO: WS upgrade (viewer)
 DO-->>Viewer: initial state
 
-Host-->>DO: send state {content, selection, version}
+Host-->>DO: send state {content, selection, language, version}
 DO-->>Viewer: broadcast state
 
 Host->>Worker: POST /api/share/stop
@@ -141,7 +142,7 @@ wrangler deploy
 ### API Summary
 - `POST /api/share/start` → `{ key, hostToken, viewerUrl, ttlSeconds }`
 - `POST /api/share/stop` with `{ key, hostToken }` → `{ ok: true }`
-- `GET /api/share/snapshot/:key` → `{ active, content, selection, version }`
+- `GET /api/share/snapshot/:key` → `{ active, content, selection, language, version }`
 - `WS /ws/:key?role=host&token=...` or `WS /ws/:key?role=viewer`
 
 ### Security & Notes
