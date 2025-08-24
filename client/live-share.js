@@ -126,7 +126,10 @@
 
   function openShareModal(key){
     shareKeyEl.textContent = key;
-    const link = `${location.origin}/?share=${encodeURIComponent(key)}`;
+    // Generate share link using current page's base path
+    const currentUrl = new URL(location.href);
+    const basePath = currentUrl.pathname.replace(/\/[^\/]*$/, '/'); // Remove filename, keep directory
+    const link = `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}`;
     shareLinkEl.value = link;
     shareModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -182,7 +185,15 @@
       setLiveIndicator(`LIVE (Host: ${key})`, true);
       setButtonsForRole('host');
       // Send initial state immediately so viewers joining get current content and language
-      scheduleSend();
+      const ed = getEditor();
+      if (ed) {
+        const content = ed.getValue();
+        const selection = ed.getSelection();
+        const language = ed.getModel().getLanguageId();
+        version += 1;
+        const payload = { type: 'state', content, selection: selection ? { start: selection.startColumn, end: selection.endColumn } : { start: 0, end: 0 }, language, version };
+        try { session.ws.send(JSON.stringify(payload)); } catch {}
+      }
     };
     session.ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
