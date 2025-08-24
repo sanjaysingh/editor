@@ -181,6 +181,8 @@
     session.ws.onopen = () => {
       setLiveIndicator(`LIVE (Host: ${key})`, true);
       setButtonsForRole('host');
+      // Send initial state immediately so viewers joining get current content and language
+      scheduleSend();
     };
     session.ws.onmessage = (ev) => {
       const msg = JSON.parse(ev.data);
