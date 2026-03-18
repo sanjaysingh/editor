@@ -31,6 +31,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Inject cache version
+        run: |
+          COMMIT_SHA="${{ github.sha }}"
+          find client -type f \( -name "*.html" -o -name "*.js" \) -exec sed -i "s/__CACHE_VERSION__/${COMMIT_SHA}/g" {} \;
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

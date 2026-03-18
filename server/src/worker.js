@@ -9,6 +9,7 @@ export class RoomDurableObject {
       selection: { start: 0, end: 0 },
       language: "plaintext",
       version: 0,
+      encrypted: false,
       hostToken: null,
       hostConnected: false,
       active: false,
@@ -135,14 +136,28 @@ export class RoomDurableObject {
           const msg = JSON.parse(event.data);
           if (msg.type === "state") {
             if (!this.room.active) return;
-            this.room.content = String(msg.content ?? "");
-            this.room.selection = msg.selection || { start: 0, end: 0 };
-            this.room.language = String(msg.language ?? this.room.language ?? "plaintext");
-            this.room.version = Number(msg.version || (this.room.version + 1));
-            await this.state.storage.put("room", this.room);
-            const payload = JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version });
-            for (const ws of this.viewers) {
-              try { ws.send(payload); } catch {}
+            if (msg.encrypted) {
+              // Encrypted: pass through raw message; server stores cipher as content for snapshot
+              this.room.content = String(msg.content ?? "");
+              this.room.encrypted = true;
+              this.room.selection = { start: 0, end: 0 };
+              this.room.language = "plaintext";
+              this.room.version = (this.room.version || 0) + 1;
+              await this.state.storage.put("room", this.room);
+              for (const ws of this.viewers) {
+                try { ws.send(event.data); } catch {}
+              }
+            } else {
+              this.room.content = String(msg.content ?? "");
+              this.room.encrypted = false;
+              this.room.selection = msg.selection || { start: 0, end: 0 };
+              this.room.language = String(msg.language ?? this.room.language ?? "plaintext");
+              this.room.version = Number(msg.version || (this.room.version + 1));
+              await this.state.storage.put("room", this.room);
+              const payload = JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version });
+              for (const ws of this.viewers) {
+                try { ws.send(payload); } catch {}
+              }
             }
           }
         } catch {}
