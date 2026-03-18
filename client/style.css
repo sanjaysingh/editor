@@ -306,6 +306,10 @@ select {
     box-sizing: border-box;
 }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.modal-content #share-encryption-row,
+.modal-content #join-encryption-row { margin: 12px 0; }
+.modal-content #join-encryption-row label { display: block; margin-bottom: 4px; font-size: 14px; color: var(--text-secondary); }
+.modal-content #copy-encryption-key-btn { margin-top: 8px; }
 
 @media (max-width: 600px) {
   .modal-content {
