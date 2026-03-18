@@ -3,6 +3,70 @@
   const OriginalFetch = window.__origFetch || window.fetch?.bind(window);
   const OriginalWebSocket = window.__origWebSocket || window.WebSocket;
 
+  // --- Encrypted Live Share: E2E encryption utilities ---
+  const ENC_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // exclude I,O for clarity
+  const PBKDF2_ITERATIONS = 100000;
+  const SALT_LEN = 16;
+  const IV_LEN = 12;
+
+  function generateEncryptionKey() {
+    return Array.from({ length: 6 }, () => ENC_CHARS[Math.floor(Math.random() * ENC_CHARS.length)]).join('');
+  }
+
+  function normalizeEncryptionKey(raw) {
+    return String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+  }
+
+  function validateEncryptionKey(key) {
+    const k = normalizeEncryptionKey(key);
+    return k.length === 6;
+  }
+
+  async function deriveKey(passphrase) {
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
+    const salt = crypto.getRandomValues(new Uint8Array(SALT_LEN));
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      keyMaterial,
+      256
+    );
+    return { key: await crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['encrypt', 'decrypt']), salt };
+  }
+
+  async function encrypt(plaintext, passphrase) {
+    const { key, salt } = await deriveKey(passphrase);
+    const iv = crypto.getRandomValues(new Uint8Array(IV_LEN));
+    const enc = new TextEncoder();
+    const ct = await crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv },
+      key,
+      enc.encode(plaintext)
+    );
+    const combined = new Uint8Array(salt.length + iv.length + ct.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(ct), salt.length + iv.length);
+    return btoa(String.fromCharCode(...combined));
+  }
+
+  async function decrypt(base64Cipher, passphrase) {
+    const raw = Uint8Array.from(atob(base64Cipher), c => c.charCodeAt(0));
+    const salt = raw.slice(0, SALT_LEN);
+    const iv = raw.slice(SALT_LEN, SALT_LEN + IV_LEN);
+    const ciphertext = raw.slice(SALT_LEN + IV_LEN);
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
+    const bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+      keyMaterial,
+      256
+    );
+    const key = await crypto.subtle.importKey('raw', bits, 'AES-GCM', false, ['decrypt']);
+    const dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+    return new TextDecoder().decode(dec);
+  }
+
   // If app.js already blocked, try to recover via iframe trick (best effort)
   let safeFetch = OriginalFetch;
   let SafeWebSocket = OriginalWebSocket;
@@ -69,7 +133,7 @@
   const joinConfirmBtn = document.getElementById('join-confirm-btn');
   const joinCancelBtn = document.getElementById('join-cancel-btn');
 
-  let session = { key: null, hostToken: null, role: 'idle', ws: null };
+  let session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
   let version = 0;
   let sendTimer = null;
   let liveMenuEl = null;
@@ -124,13 +188,19 @@
     window.liveShareRole = role;
   }
 
-  function openShareModal(key){
+  function openShareModal(key, encrypted, encryptionKey){
     shareKeyEl.textContent = key;
     // Generate share link using current page's base path
     const currentUrl = new URL(location.href);
     const basePath = currentUrl.pathname.replace(/\/[^\/]*$/, '/'); // Remove filename, keep directory
-    const link = `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}`;
+    const link = encrypted ? `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}&e=1` : `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}`;
     shareLinkEl.value = link;
+    const encKeyEl = document.getElementById('share-encryption-key');
+    const encKeyRow = document.getElementById('share-encryption-row');
+    if (encKeyRow) encKeyRow.style.display = encrypted ? 'block' : 'none';
+    if (encKeyEl) encKeyEl.textContent = encryptionKey || '';
+    const copyEncKeyBtn = document.getElementById('copy-encryption-key-btn');
+    if (copyEncKeyBtn) copyEncKeyBtn.style.display = encrypted ? 'inline-block' : 'none';
     shareModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
@@ -139,11 +209,19 @@
     document.body.style.overflow = '';
     focusEditorSoon();
   }
-  function openJoinModal(){
+  function openJoinModal(preset){
     joinModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-    joinKeyInput.value = '';
-    setTimeout(() => joinKeyInput.focus(), 0);
+    joinKeyInput.value = preset?.key ?? '';
+    const encCheck = document.getElementById('join-encrypted-checkbox');
+    const encRow = document.getElementById('join-encryption-row');
+    const encInput = document.getElementById('join-encryption-key-input');
+    if (encCheck && encRow) {
+      encCheck.checked = !!preset?.encrypted;
+      encRow.style.display = encCheck.checked ? 'block' : 'none';
+    }
+    if (encInput) encInput.value = '';
+    setTimeout(() => ((preset?.encrypted && encInput) ? encInput : joinKeyInput)?.focus(), 0);
   }
   function closeJoinModal(){
     joinModal.style.display = 'none';
@@ -178,11 +256,24 @@
     }, 30);
   }
 
+  async function sendStatePayload(payload) {
+    if (!session.ws) return;
+    if (session.encrypted && session.encryptionKey) {
+      try {
+        const plain = JSON.stringify(payload);
+        const cipher = await encrypt(plain, session.encryptionKey);
+        session.ws.send(JSON.stringify({ type: 'state', content: cipher, encrypted: true }));
+      } catch (e) { console.warn('Encryption failed', e); }
+    } else {
+      try { session.ws.send(JSON.stringify(payload)); } catch {}
+    }
+  }
+
   function connectHost(key, hostToken){
     const url = api.wsUrl(key, 'host', hostToken);
     session.ws = new SafeWebSocket(url);
     session.ws.onopen = () => {
-      setLiveIndicator(`LIVE (Host: ${key})`, true);
+      setLiveIndicator(session.encrypted ? `LIVE (Host: ${key}) [Encrypted]` : `LIVE (Host: ${key})`, true);
       setButtonsForRole('host');
       // Send initial state immediately so viewers joining get current content and language
       const ed = getEditor();
@@ -192,7 +283,7 @@
         const language = ed.getModel().getLanguageId();
         version += 1;
         const payload = { type: 'state', content, selection: selection ? { start: selection.startColumn, end: selection.endColumn } : { start: 0, end: 0 }, language, version };
-        try { session.ws.send(JSON.stringify(payload)); } catch {}
+        sendStatePayload(payload);
       }
     };
     session.ws.onmessage = (ev) => {
@@ -206,45 +297,61 @@
     };
   }
 
+  async function applyStateMessage(msg) {
+    let content = msg.content;
+    let selection = msg.selection;
+    let language = msg.language;
+    let ver = msg.version;
+    if (session.encrypted && session.encryptionKey) {
+      try {
+        const decrypted = JSON.parse(await decrypt(content, session.encryptionKey));
+        content = decrypted.content;
+        selection = decrypted.selection;
+        language = decrypted.language;
+        ver = decrypted.version;
+      } catch (e) {
+        console.warn('Decryption failed', e);
+        return;
+      }
+    }
+    const ed = getEditor();
+    if (ed) {
+      const current = ed.getValue();
+      if (current !== content) {
+        const pos = ed.getScrollTop();
+        ed.setValue(content);
+        ed.setScrollTop(pos);
+      }
+      if (language && ed.getModel().getLanguageId() !== language) {
+        monaco.editor.setModelLanguage(ed.getModel(), language);
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) langSelect.value = language;
+      }
+    }
+    version = ver || version + 1;
+  }
+
   function connectViewer(key){
     const url = api.wsUrl(key, 'viewer');
     session.ws = new SafeWebSocket(url);
     session.ws.onopen = () => {
-      setLiveIndicator(`LIVE (Viewing: ${key})`, true);
+      setLiveIndicator(session.encrypted ? `LIVE (Viewing: ${key}) [Encrypted]` : `LIVE (Viewing: ${key})`, true);
       disableEditing(true);
       setButtonsForRole('viewer');
       forceLayoutAndScrollTop();
       focusEditorSoon();
     };
-    session.ws.onmessage = (ev) => {
+    session.ws.onmessage = async (ev) => {
       const msg = JSON.parse(ev.data);
       if (msg.type === 'state') {
-        const ed = getEditor();
-        if (ed) {
-          const current = ed.getValue();
-          if (current !== msg.content) {
-            const pos = ed.getScrollTop();
-            ed.setValue(msg.content);
-            ed.setScrollTop(pos);
-          }
-          // Update language if it changed
-          if (msg.language && ed.getModel().getLanguageId() !== msg.language) {
-            monaco.editor.setModelLanguage(ed.getModel(), msg.language);
-            // Update the dropdown to reflect the new language
-            const langSelect = document.getElementById('language-select');
-            if (langSelect) {
-              langSelect.value = msg.language;
-            }
-          }
-        }
-        version = msg.version || version + 1;
+        await applyStateMessage(msg);
       }
       if (msg.type === 'ended') {
         setLiveIndicator('Session ended', true);
         setTimeout(() => setLiveIndicator('', false), 2000);
         disableEditing(false);
         if (session.ws) try { session.ws.close(); } catch {}
-        session = { key: null, hostToken: null, role: 'idle', ws: null };
+        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
         setButtonsForRole('idle');
         forceLayoutAndScrollTop();
         focusEditorSoon();
@@ -264,7 +371,7 @@
       const language = ed.getModel().getLanguageId();
       version += 1;
       const payload = { type: 'state', content, selection: selection ? { start: selection.startColumn, end: selection.endColumn } : { start: 0, end: 0 }, language, version };
-      try { session.ws.send(JSON.stringify(payload)); } catch {}
+      sendStatePayload(payload);
     }, 60);
   }
 
@@ -274,8 +381,27 @@
   function startLiveShare(){
     if (session.role === 'viewer') { alert('Viewers cannot start a new live share.'); return; }
     api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
-      session = { key, hostToken, role: 'host', ws: null };
-      openShareModal(key);
+      session = { key, hostToken, role: 'host', ws: null, encrypted: false, encryptionKey: null };
+      openShareModal(key, false);
+      connectHost(key, hostToken);
+      const ed = getEditor();
+      if (ed) {
+        ed.onDidChangeModelContent(() => scheduleSend());
+        ed.onDidChangeCursorSelection(() => scheduleSend());
+        ed.onDidChangeModelLanguage(() => scheduleSend());
+      }
+      setButtonsForRole('host');
+      forceLayoutAndScrollTop();
+      focusEditorSoon();
+    }).catch((e) => alert(e.message || 'Failed to start live share'));
+  }
+
+  function startEncryptedLiveShare(){
+    if (session.role === 'viewer') { alert('Viewers cannot start a new live share.'); return; }
+    api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
+      const encKey = generateEncryptionKey();
+      session = { key, hostToken, role: 'host', ws: null, encrypted: true, encryptionKey: encKey };
+      openShareModal(key, true, encKey);
       connectHost(key, hostToken);
       const ed = getEditor();
       if (ed) {
@@ -293,7 +419,7 @@
     if (!session.key || session.role !== 'host') return;
     api.stop(session.key, session.hostToken).finally(() => {
       if (session.ws) try { session.ws.close(); } catch {}
-      session = { key: null, hostToken: null, role: 'idle', ws: null };
+      session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
       setLiveIndicator('', false);
       setButtonsForRole('idle');
       forceLayoutAndScrollTop();
@@ -301,33 +427,51 @@
     });
   }
 
-  function joinByKey(key){
+  async function applySnapshot(snap) {
+    let content = snap.content;
+    let language = snap.language;
+    if (session.encrypted && session.encryptionKey && content) {
+      try {
+        const decrypted = JSON.parse(await decrypt(String(content), session.encryptionKey));
+        content = decrypted.content;
+        language = decrypted.language;
+      } catch (e) {
+        alert('Invalid encryption key or corrupted data.');
+        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+        setButtonsForRole('idle');
+        return false;
+      }
+    }
+    if (window.editor && typeof content === 'string') {
+      window.editor.setValue(content);
+      if (language && window.editor.getModel().getLanguageId() !== language) {
+        monaco.editor.setModelLanguage(window.editor.getModel(), language);
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) langSelect.value = language;
+      }
+    }
+    return true;
+  }
+
+  function joinByKey(key, encryptionKey){
     const formatted = normalizeKey(key);
     if (!validateKey(formatted)) { alert('Invalid key. Use format ABC234 or ABC-234'); return; }
-    session = { key: formatted, hostToken: null, role: 'viewer', ws: null };
+    const encKey = encryptionKey ? normalizeEncryptionKey(encryptionKey) : null;
+    const isEncrypted = encKey && validateEncryptionKey(encKey);
+    session = { key: formatted, hostToken: null, role: 'viewer', ws: null, encrypted: isEncrypted, encryptionKey: isEncrypted ? encKey : null };
     setButtonsForRole('viewer');
-    api.snapshot(formatted).then((snap) => {
+    api.snapshot(formatted).then(async (snap) => {
       if (!snap.active) {
         alert('Session not active');
-        session = { key: null, hostToken: null, role: 'idle', ws: null };
+        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
         setButtonsForRole('idle');
         return;
       }
-      if (window.editor && typeof snap.content === 'string') {
-        window.editor.setValue(snap.content);
-        // Apply language from snapshot if available
-        if (snap.language && window.editor.getModel().getLanguageId() !== snap.language) {
-          monaco.editor.setModelLanguage(window.editor.getModel(), snap.language);
-          const langSelect = document.getElementById('language-select');
-          if (langSelect) {
-            langSelect.value = snap.language;
-          }
-        }
-      }
-      connectViewer(formatted);
+      const ok = await applySnapshot(snap);
+      if (ok) connectViewer(formatted);
     }).catch(() => {
       alert('Failed to join session');
-      session = { key: null, hostToken: null, role: 'idle', ws: null };
+      session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
       setButtonsForRole('idle');
     });
   }
@@ -349,6 +493,7 @@
     } else {
       menu.innerHTML = `
         <button type="button" data-action="start"><i class="fas fa-play"></i> Start Live Share</button>
+        <button type="button" data-action="start-encrypted"><i class="fas fa-lock"></i> Start Encrypted Live Share</button>
         <button type="button" data-action="join"><i class="fas fa-link"></i> Join Session</button>
       `;
     }
@@ -363,6 +508,7 @@
       if (!btn) return;
       const action = btn.getAttribute('data-action');
       if (action === 'start') startLiveShare();
+      if (action === 'start-encrypted') startEncryptedLiveShare();
       if (action === 'join') openJoinModal();
       if (action === 'stop') stopLiveShare();
       if (action === 'copy') { try { navigator.clipboard.writeText(shareLinkEl.value); } catch {} }
@@ -408,10 +554,45 @@
       setTimeout(() => (copyLinkBtn.textContent = 'Copy Link'), 1200);
     });
   });
+  const copyEncKeyBtn = document.getElementById('copy-encryption-key-btn');
+  if (copyEncKeyBtn) copyEncKeyBtn.addEventListener('click', () => {
+    const encKey = document.getElementById('share-encryption-key')?.textContent;
+    if (encKey) {
+      navigator.clipboard.writeText(encKey).then(() => {
+        copyEncKeyBtn.textContent = 'Copied!';
+        setTimeout(() => (copyEncKeyBtn.textContent = 'Copy Encryption Key'), 1200);
+      });
+    }
+  });
   if (closeModalBtn) closeModalBtn.addEventListener('click', closeShareModal);
   if (joinCancelBtn) joinCancelBtn.addEventListener('click', closeJoinModal);
-  if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => { const k = joinKeyInput.value; closeJoinModal(); joinByKey(k); });
-  joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); joinConfirmBtn.click(); }});
+  if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => {
+    const k = joinKeyInput.value;
+    const encChecked = document.getElementById('join-encrypted-checkbox')?.checked;
+    const encK = document.getElementById('join-encryption-key-input')?.value?.trim() || '';
+    if (encChecked && !validateEncryptionKey(encK)) {
+      alert('Please enter the 6-character encryption key from the host.');
+      return;
+    }
+    closeJoinModal();
+    joinByKey(k, encChecked ? encK : undefined);
+  });
+  const submitJoin = () => { joinConfirmBtn?.click(); };
+  joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
+  joinEncInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
+  const joinEncryptedCheck = document.getElementById('join-encrypted-checkbox');
+  const joinEncRow = document.getElementById('join-encryption-row');
+  if (joinEncryptedCheck && joinEncRow) {
+    joinEncryptedCheck.addEventListener('change', () => {
+      joinEncRow.style.display = joinEncryptedCheck.checked ? 'block' : 'none';
+    });
+  }
+  const joinEncInput = document.getElementById('join-encryption-key-input');
+  if (joinEncInput) {
+    joinEncInput.addEventListener('input', () => {
+      joinEncInput.value = joinEncInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+    });
+  }
   joinKeyInput?.addEventListener('input', () => {
     const raw = joinKeyInput.value || '';
     const up = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -425,11 +606,16 @@
     }
   });
 
-  // Auto-join if URL has ?share=KEY
+  // Auto-join if URL has ?share=KEY (or open join modal for encrypted ?share=KEY&e=1)
   const urlParams = new URLSearchParams(location.search);
   const initialKey = urlParams.get('share');
+  const isEncryptedLink = urlParams.get('e') === '1';
   const normalizedInitial = normalizeKey(initialKey);
   if (validateKey(normalizedInitial)) {
-    joinByKey(normalizedInitial);
+    if (isEncryptedLink) {
+      openJoinModal({ key: normalizedInitial, encrypted: true });
+    } else {
+      joinByKey(normalizedInitial);
+    }
   }
 })(); 

@@ -45,6 +45,10 @@
       <div class="modal-content">
         <h3>Live Share Started</h3>
         <p>Session key: <strong id="share-key"></strong></p>
+        <div id="share-encryption-row" style="display:none">
+          <p>Encryption key (share with viewers): <strong id="share-encryption-key"></strong></p>
+          <button id="copy-encryption-key-btn" type="button" style="display:none">Copy Encryption Key</button>
+        </div>
         <input id="share-link" readonly>
         <div class="modal-actions">
           <button id="copy-link-btn">Copy Link</button>
@@ -57,6 +61,13 @@
       <div class="modal-content">
         <h3>Join Session</h3>
         <input id="join-key-input" placeholder="ABC234" maxlength="7" inputmode="latin" autocomplete="off" autocapitalize="characters">
+        <div>
+          <label><input type="checkbox" id="join-encrypted-checkbox"> Encrypted session</label>
+        </div>
+        <div id="join-encryption-row" style="display:none">
+          <label for="join-encryption-key-input">Encryption key (6 chars):</label>
+          <input id="join-encryption-key-input" placeholder="ABCDEF" maxlength="6" inputmode="latin" autocomplete="off" autocapitalize="characters" title="6-character encryption key from host">
+        </div>
         <div class="modal-actions">
           <button id="join-confirm-btn">Join</button>
           <button id="join-cancel-btn">Cancel</button>
