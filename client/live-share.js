@@ -132,6 +132,9 @@
   const joinKeyInput = document.getElementById('join-key-input');
   const joinConfirmBtn = document.getElementById('join-confirm-btn');
   const joinCancelBtn = document.getElementById('join-cancel-btn');
+  const joinEncryptedCheck = document.getElementById('join-encrypted-checkbox');
+  const joinEncRow = document.getElementById('join-encryption-row');
+  const joinEncInput = document.getElementById('join-encryption-key-input');
 
   let session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
   let version = 0;
@@ -580,14 +583,11 @@
   const submitJoin = () => { joinConfirmBtn?.click(); };
   joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
   joinEncInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
-  const joinEncryptedCheck = document.getElementById('join-encrypted-checkbox');
-  const joinEncRow = document.getElementById('join-encryption-row');
   if (joinEncryptedCheck && joinEncRow) {
     joinEncryptedCheck.addEventListener('change', () => {
       joinEncRow.style.display = joinEncryptedCheck.checked ? 'block' : 'none';
     });
   }
-  const joinEncInput = document.getElementById('join-encryption-key-input');
   if (joinEncInput) {
     joinEncInput.addEventListener('input', () => {
       joinEncInput.value = joinEncInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
@@ -607,6 +607,8 @@
   });
 
   // Auto-join if URL has ?share=KEY (or open join modal for encrypted ?share=KEY&e=1)
+  // Encrypted links: show join modal immediately (checkbox + encryption key input)
+  // Non-encrypted: defer until editor is ready so snapshot content can be applied
   const urlParams = new URLSearchParams(location.search);
   const initialKey = urlParams.get('share');
   const isEncryptedLink = urlParams.get('e') === '1';
@@ -615,7 +617,29 @@
     if (isEncryptedLink) {
       openJoinModal({ key: normalizedInitial, encrypted: true });
     } else {
-      joinByKey(normalizedInitial);
+      const doJoin = () => {
+        joinByKey(normalizedInitial);
+      };
+      if (getEditor()) {
+        doJoin();
+      } else {
+        let attempts = 0;
+        const maxAttempts = 300; // ~5s at 60fps
+        const checkEditor = () => {
+          if (getEditor()) {
+            doJoin();
+            return;
+          }
+          if (++attempts < maxAttempts) {
+            requestAnimationFrame(checkEditor);
+          }
+        };
+        if (document.readyState === 'complete') {
+          checkEditor();
+        } else {
+          window.addEventListener('load', () => setTimeout(checkEditor, 50));
+        }
+      }
     }
   }
 })(); 
