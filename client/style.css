@@ -306,7 +306,6 @@ select {
     box-sizing: border-box;
 }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
-.modal-content #join-encryption-row { margin: 12px 0; }
 
 /* Share modal - new row-based layout */
 .share-info-rows {
@@ -388,44 +387,49 @@ select {
 .primary-btn:hover {
     background: #005a9e;
 }
-.modal-content #join-encryption-row label { display: block; margin-bottom: 4px; font-size: 14px; color: var(--text-secondary); }
 .modal-content #copy-encryption-key-btn { margin-top: 8px; }
 
-/* Join modal - Encrypted checkbox alignment */
-.checkbox-row {
-    margin: 12px 0;
-}
-.checkbox-label {
+/* Join modal - row-based layout (similar to share modal) */
+.join-info-rows {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    cursor: pointer;
+    flex-direction: column;
+    gap: 16px;
+    margin: 16px 0;
 }
-.checkbox-label input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
-    margin: 0;
-    cursor: pointer;
-    flex-shrink: 0;
+.join-info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
-.encryption-row {
-    margin: 12px 0;
-    padding: 12px;
-    background: var(--bg-control);
+.join-info-row label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.optional-label {
+    text-transform: none;
+    font-weight: normal;
+    font-size: 11px;
+    color: #888;
+    letter-spacing: 0;
+}
+.join-info-row input {
+    width: 100%;
+    padding: 12px 14px;
     border-radius: 6px;
     border: 1px solid var(--border-color);
-}
-.encryption-key-label {
-    display: block;
-    margin-bottom: 6px;
-    font-size: 14px;
-    color: var(--text-secondary);
-}
-.encryption-row input {
-    margin: 0;
-    letter-spacing: 2px;
+    background: var(--bg-control);
+    color: var(--text-primary);
+    font-size: 16px;
     font-family: monospace;
+    letter-spacing: 2px;
+    box-sizing: border-box;
+}
+.join-info-row input:focus {
+    outline: none;
+    border-color: var(--status-bar-bg);
 }
 
 @media (max-width: 600px) {
@@ -448,19 +452,6 @@ select {
     gap: 12px;
     justify-content: flex-end;
   }
-  .checkbox-label {
-    font-size: 14px;
-  }
-  .checkbox-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-  }
-  .encryption-row {
-    padding: 10px;
-  }
-  .encryption-key-label {
-    font-size: 13px;
-  }
   /* Share modal mobile styles */
   .share-info-rows {
     gap: 14px;
@@ -478,6 +469,17 @@ select {
   }
   .icon-btn i {
     font-size: 16px;
+  }
+  /* Join modal mobile styles */
+  .join-info-rows {
+    gap: 14px;
+  }
+  .join-info-row input {
+    padding: 14px 16px;
+    font-size: 16px; /* prevent iOS zoom */
+  }
+  .optional-label {
+    font-size: 10px;
   }
 } 
 

@@ -109,8 +109,6 @@
   const joinKeyInput = document.getElementById('join-key-input');
   const joinConfirmBtn = document.getElementById('join-confirm-btn');
   const joinCancelBtn = document.getElementById('join-cancel-btn');
-  const joinEncryptedCheck = document.getElementById('join-encrypted-checkbox');
-  const joinEncRow = document.getElementById('join-encryption-row');
   const joinEncInput = document.getElementById('join-encryption-key-input');
 
   let session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
@@ -191,15 +189,9 @@
     joinModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     joinKeyInput.value = preset?.key ?? '';
-    const encCheck = document.getElementById('join-encrypted-checkbox');
-    const encRow = document.getElementById('join-encryption-row');
     const encInput = document.getElementById('join-encryption-key-input');
-    if (encCheck && encRow) {
-      encCheck.checked = !!preset?.encrypted;
-      encRow.style.display = encCheck.checked ? 'block' : 'none';
-    }
     if (encInput) encInput.value = '';
-    setTimeout(() => ((preset?.encrypted && encInput) ? encInput : joinKeyInput)?.focus(), 0);
+    setTimeout(() => joinKeyInput?.focus(), 0);
   }
   function closeJoinModal(){
     joinModal.style.display = 'none';
@@ -561,23 +553,19 @@
   if (joinCancelBtn) joinCancelBtn.addEventListener('click', closeJoinModal);
   if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => {
     const k = joinKeyInput.value;
-    const encChecked = document.getElementById('join-encrypted-checkbox')?.checked;
-    const encK = document.getElementById('join-encryption-key-input')?.value?.trim() || '';
-    if (encChecked && !validateEncryptionKey(encK)) {
-      alert('Please enter the 6-character encryption key from the host.');
+    const encK = joinEncInput?.value?.trim() || '';
+    // If encryption key is provided, validate it; otherwise treat as unencrypted
+    const hasEncKey = encK.length > 0;
+    if (hasEncKey && !validateEncryptionKey(encK)) {
+      alert('Please enter a valid 6-character encryption key, or leave empty for unencrypted sessions.');
       return;
     }
     closeJoinModal();
-    joinByKey(k, encChecked ? encK : undefined);
+    joinByKey(k, hasEncKey ? encK : undefined);
   });
   const submitJoin = () => { joinConfirmBtn?.click(); };
   joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
   joinEncInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
-  if (joinEncryptedCheck && joinEncRow) {
-    joinEncryptedCheck.addEventListener('change', () => {
-      joinEncRow.style.display = joinEncryptedCheck.checked ? 'block' : 'none';
-    });
-  }
   if (joinEncInput) {
     joinEncInput.addEventListener('input', () => {
       joinEncInput.value = joinEncInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
@@ -596,8 +584,8 @@
     }
   });
 
-  // Auto-join if URL has ?share=KEY (or open join modal for encrypted ?share=KEY&e=1)
-  // Encrypted links: show join modal immediately (checkbox + encryption key input)
+  // Auto-join if URL has ?share=KEY
+  // Encrypted links (?share=KEY&e=1): show join modal with key pre-filled so user can enter encryption key
   // Non-encrypted: defer until editor is ready so snapshot content can be applied
   const urlParams = new URLSearchParams(location.search);
   const initialKey = urlParams.get('share');
@@ -605,7 +593,8 @@
   const normalizedInitial = normalizeKey(initialKey);
   if (validateKey(normalizedInitial)) {
     if (isEncryptedLink) {
-      openJoinModal({ key: normalizedInitial, encrypted: true });
+      // Show join modal for encrypted sessions so user can enter the encryption key
+      openJoinModal({ key: normalizedInitial });
     } else {
       const doJoin = () => {
         joinByKey(normalizedInitial);
