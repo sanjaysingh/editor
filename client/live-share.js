@@ -464,7 +464,7 @@
       menu.innerHTML = `
         <button type="button" data-action="stop"><i class="fas fa-stop-circle"></i> Stop Live Share</button>
         <div class="sep"></div>
-        <button type="button" data-action="copy"><i class="fas fa-link"></i> Copy Share Link</button>
+        <button type="button" data-action="show"><i class="fas fa-eye"></i> Show Live Share</button>
       `;
     } else if (session.role === 'viewer') {
       menu.innerHTML = `
@@ -491,7 +491,7 @@
       if (action === 'start-encrypted') startEncryptedLiveShare();
       if (action === 'join') openJoinModal();
       if (action === 'stop') stopLiveShare();
-      if (action === 'copy') { try { navigator.clipboard.writeText(shareLinkEl.value); } catch {} }
+      if (action === 'show') { openShareModal(session.key, session.encrypted, session.encryptionKey); }
       closeLiveMenu();
     });
 
