@@ -61,11 +61,11 @@
       <div class="modal-content">
         <h3>Join Session</h3>
         <input id="join-key-input" placeholder="ABC234" maxlength="7" inputmode="latin" autocomplete="off" autocapitalize="characters">
-        <div>
-          <label><input type="checkbox" id="join-encrypted-checkbox"> Encrypted session</label>
+        <div class="checkbox-row">
+          <label class="checkbox-label"><input type="checkbox" id="join-encrypted-checkbox"> Encrypted session</label>
         </div>
-        <div id="join-encryption-row" style="display:none">
-          <label for="join-encryption-key-input">Encryption key (6 chars):</label>
+        <div id="join-encryption-row" style="display:none" class="encryption-row">
+          <label for="join-encryption-key-input" class="encryption-key-label">Encryption key (6 chars):</label>
           <input id="join-encryption-key-input" placeholder="ABCDEF" maxlength="6" inputmode="latin" autocomplete="off" autocapitalize="characters" title="6-character encryption key from host">
         </div>
         <div class="modal-actions">

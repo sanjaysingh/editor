@@ -308,16 +308,100 @@ select {
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
 .modal-content #share-encryption-row,
 .modal-content #join-encryption-row { margin: 12px 0; }
+
+/* Share modal specific styles */
+#share-encryption-row {
+    padding: 10px 12px;
+    background: var(--bg-control);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+#share-encryption-row p {
+    margin: 0 0 8px 0;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+#share-encryption-row strong {
+    color: var(--text-primary);
+    letter-spacing: 1px;
+    font-family: monospace;
+}
+#share-key {
+    letter-spacing: 1px;
+    font-family: monospace;
+}
 .modal-content #join-encryption-row label { display: block; margin-bottom: 4px; font-size: 14px; color: var(--text-secondary); }
 .modal-content #copy-encryption-key-btn { margin-top: 8px; }
 
+/* Join modal - Encrypted checkbox alignment */
+.checkbox-row {
+    margin: 12px 0;
+}
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    cursor: pointer;
+}
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.encryption-row {
+    margin: 12px 0;
+    padding: 12px;
+    background: var(--bg-control);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+.encryption-key-label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+.encryption-row input {
+    margin: 0;
+    letter-spacing: 2px;
+    font-family: monospace;
+}
+
 @media (max-width: 600px) {
   .modal-content {
-    padding: 12px;
+    padding: 16px;
     width: 92vw;
   }
-  .modal-content h3 { font-size: 16px; }
-  .modal-actions button { padding: 8px 10px; font-size: 14px; }
+  .modal-content h3 { font-size: 16px; margin-bottom: 12px; }
+  .modal-content input {
+    padding: 12px 14px;
+    font-size: 16px; /* prevent iOS zoom on focus */
+  }
+  .modal-actions button { 
+    padding: 10px 14px; 
+    font-size: 14px;
+    flex: 1;
+    justify-content: center;
+  }
+  .modal-actions {
+    gap: 12px;
+  }
+  .checkbox-label {
+    font-size: 14px;
+  }
+  .checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+  }
+  .encryption-row {
+    padding: 10px;
+  }
+  .encryption-key-label {
+    font-size: 13px;
+  }
 } 
 
 /* Live menu */
