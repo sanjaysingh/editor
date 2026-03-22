@@ -177,10 +177,8 @@
     shareLinkEl.value = link;
     const encKeyEl = document.getElementById('share-encryption-key');
     const encKeyRow = document.getElementById('share-encryption-row');
-    if (encKeyRow) encKeyRow.style.display = encrypted ? 'block' : 'none';
+    if (encKeyRow) encKeyRow.style.display = encrypted ? 'flex' : 'none';
     if (encKeyEl) encKeyEl.textContent = encryptionKey || '';
-    const copyEncKeyBtn = document.getElementById('copy-encryption-key-btn');
-    if (copyEncKeyBtn) copyEncKeyBtn.style.display = encrypted ? 'inline-block' : 'none';
     shareModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
@@ -528,19 +526,34 @@
   if (legacyStartBtn) legacyStartBtn.addEventListener('click', () => { openLiveMenu(); });
   if (legacyJoinBtn) legacyJoinBtn.addEventListener('click', () => { openLiveMenu(); });
   if (legacyStopBtn) legacyStopBtn.addEventListener('click', () => { stopLiveShare(); });
+  // Copy session key button
+  const copyKeyBtn = document.getElementById('copy-key-btn');
+  if (copyKeyBtn) copyKeyBtn.addEventListener('click', () => {
+    const key = shareKeyEl.textContent;
+    if (key) {
+      navigator.clipboard.writeText(key).then(() => {
+        copyKeyBtn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => (copyKeyBtn.innerHTML = '<i class="fas fa-copy"></i>'), 1200);
+      });
+    }
+  });
+
+  // Copy link button (now icon button)
   if (copyLinkBtn) copyLinkBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(shareLinkEl.value).then(() => {
-      copyLinkBtn.textContent = 'Copied!';
-      setTimeout(() => (copyLinkBtn.textContent = 'Copy Link'), 1200);
+      copyLinkBtn.innerHTML = '<i class="fas fa-check"></i>';
+      setTimeout(() => (copyLinkBtn.innerHTML = '<i class="fas fa-copy"></i>'), 1200);
     });
   });
+
+  // Copy encryption key button (now icon button)
   const copyEncKeyBtn = document.getElementById('copy-encryption-key-btn');
   if (copyEncKeyBtn) copyEncKeyBtn.addEventListener('click', () => {
     const encKey = document.getElementById('share-encryption-key')?.textContent;
     if (encKey) {
       navigator.clipboard.writeText(encKey).then(() => {
-        copyEncKeyBtn.textContent = 'Copied!';
-        setTimeout(() => (copyEncKeyBtn.textContent = 'Copy Encryption Key'), 1200);
+        copyEncKeyBtn.innerHTML = '<i class="fas fa-check"></i>';
+        setTimeout(() => (copyEncKeyBtn.innerHTML = '<i class="fas fa-copy"></i>'), 1200);
       });
     }
   });

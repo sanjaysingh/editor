@@ -44,15 +44,31 @@
     <div id="share-modal" class="modal" style="display:none">
       <div class="modal-content">
         <h3>Live Share Started</h3>
-        <p>Session key: <strong id="share-key"></strong></p>
-        <div id="share-encryption-row" style="display:none">
-          <p>Encryption key (share with viewers): <strong id="share-encryption-key"></strong></p>
-          <button id="copy-encryption-key-btn" type="button" style="display:none">Copy Encryption Key</button>
+        <div class="share-info-rows">
+          <div class="share-info-row">
+            <label>Session Key</label>
+            <div class="share-info-value">
+              <span id="share-key"></span>
+              <button id="copy-key-btn" class="icon-btn" title="Copy Session Key"><i class="fas fa-copy"></i></button>
+            </div>
+          </div>
+          <div class="share-info-row">
+            <label>Session URL</label>
+            <div class="share-info-value">
+              <input id="share-link" readonly>
+              <button id="copy-link-btn" class="icon-btn" title="Copy Session URL"><i class="fas fa-copy"></i></button>
+            </div>
+          </div>
+          <div id="share-encryption-row" class="share-info-row" style="display:none">
+            <label>Encryption Key</label>
+            <div class="share-info-value">
+              <span id="share-encryption-key"></span>
+              <button id="copy-encryption-key-btn" class="icon-btn" title="Copy Encryption Key"><i class="fas fa-copy"></i></button>
+            </div>
+          </div>
         </div>
-        <input id="share-link" readonly>
         <div class="modal-actions">
-          <button id="copy-link-btn">Copy Link</button>
-          <button id="close-modal-btn">Close</button>
+          <button id="close-modal-btn" class="primary-btn">Close</button>
         </div>
       </div>
     </div>
