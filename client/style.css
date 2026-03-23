@@ -494,9 +494,9 @@ select {
     border-radius: 8px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     padding: 6px;
-    min-width: 200px;
+    min-width: 220px;
     width: max-content;
-    max-width: 90vw;
+    max-width: calc(100vw - 16px);
     z-index: 1002;
 }
 .live-menu button {
@@ -513,14 +513,14 @@ select {
 
 @media (max-width: 600px) {
   .live-menu { 
-    position: fixed;
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    top: 90px;
-    min-width: 240px;
-    width: auto;
-    max-width: calc(100vw - 32px);
+    position: absolute;
+    right: 8px;
+    left: auto;
+    transform: none;
+    top: 84px;
+    min-width: 220px;
+    width: max-content;
+    max-width: calc(100vw - 16px);
   }
   .live-menu button {
     white-space: nowrap;
