@@ -513,16 +513,18 @@ select {
 
 @media (max-width: 600px) {
   .live-menu { 
-    right: 50%; 
-    transform: translateX(50%); 
-    top: 84px; 
-    min-width: 280px;
-    max-width: 92vw;
-    width: max-content;
+    position: fixed;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    top: 90px;
+    min-width: 240px;
+    width: auto;
+    max-width: calc(100vw - 32px);
   }
   .live-menu button {
     white-space: nowrap;
     font-size: 14px;
-    padding: 10px 12px;
+    padding: 12px 16px;
   }
 } 
