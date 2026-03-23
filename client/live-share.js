@@ -5,14 +5,22 @@
 
   // --- Encrypted Live Share: E2E encryption utilities ---
   const cryptoApi = typeof LiveShareCrypto !== 'undefined' ? LiveShareCrypto : (function () {
-    const ENC_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const ENC_DIGITS = '0123456789';
     const PBKDF2_ITERATIONS = 100000;
     const SALT_LEN = 16;
     const IV_LEN = 12;
     return {
-      generateEncryptionKey: () => Array.from({ length: 6 }, () => ENC_CHARS[Math.floor(Math.random() * ENC_CHARS.length)]).join(''),
-      normalizeEncryptionKey: (raw) => String(raw || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6),
-      validateEncryptionKey: (key) => (String(key || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6)).length === 6,
+      generateEncryptionKey: () => {
+        const digits = Array.from({ length: 6 }, () => ENC_DIGITS[Math.floor(Math.random() * ENC_DIGITS.length)]).join('');
+        return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      },
+      normalizeEncryptionKey: (raw) => {
+        const digits = String(raw || '').replace(/[^0-9]/g, '').slice(0, 6);
+        if (digits.length === 6) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+        return digits;
+      },
+      validateEncryptionKey: (key) => /^[0-9]{3}-[0-9]{3}$/.test(String(key || '').trim()),
+      extractKeyForCrypto: (key) => String(key || '').replace(/[^0-9]/g, ''),
       encrypt: async (plaintext, passphrase) => {
         const enc = new TextEncoder();
         const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveBits']);
@@ -41,8 +49,12 @@
   const generateEncryptionKey = cryptoApi.generateEncryptionKey;
   const normalizeEncryptionKey = cryptoApi.normalizeEncryptionKey;
   const validateEncryptionKey = cryptoApi.validateEncryptionKey;
-  const encrypt = cryptoApi.encrypt;
-  const decrypt = cryptoApi.decrypt;
+  const extractKeyForCrypto = cryptoApi.extractKeyForCrypto;
+  const _encrypt = cryptoApi.encrypt;
+  const _decrypt = cryptoApi.decrypt;
+  // Wrap encrypt/decrypt to extract digits-only passphrase from formatted key
+  const encrypt = (plaintext, passphrase) => _encrypt(plaintext, extractKeyForCrypto(passphrase));
+  const decrypt = (cipher, passphrase) => _decrypt(cipher, extractKeyForCrypto(passphrase));
 
   // If app.js already blocked, try to recover via iframe trick (best effort)
   let safeFetch = OriginalFetch;
@@ -557,7 +569,7 @@
     // If encryption key is provided, validate it; otherwise treat as unencrypted
     const hasEncKey = encK.length > 0;
     if (hasEncKey && !validateEncryptionKey(encK)) {
-      alert('Please enter a valid 6-character encryption key, or leave empty for unencrypted sessions.');
+      alert('Please enter a valid encryption key in format 123-456, or leave empty for unencrypted sessions.');
       return;
     }
     closeJoinModal();
@@ -568,7 +580,13 @@
   joinEncInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
   if (joinEncInput) {
     joinEncInput.addEventListener('input', () => {
-      joinEncInput.value = joinEncInput.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+      const raw = joinEncInput.value || '';
+      const digits = raw.replace(/[^0-9]/g, '').slice(0, 6);
+      if (digits.length <= 3) {
+        joinEncInput.value = digits;
+      } else {
+        joinEncInput.value = `${digits.slice(0, 3)}-${digits.slice(3)}`;
+      }
     });
   }
   joinKeyInput?.addEventListener('input', () => {

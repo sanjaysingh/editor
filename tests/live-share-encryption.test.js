@@ -10,7 +10,7 @@ const { encrypt, decrypt } = require('./crypto-impl.cjs');
 
 describe('Live Share Encrypted State Flow', () => {
   it('host payload format matches viewer expectation', async () => {
-    const encKey = 'ABCDEF';
+    const encKey = '123-456';
     const payload = {
       type: 'state',
       content: 'const x = 1;',
@@ -33,7 +33,7 @@ describe('Live Share Encrypted State Flow', () => {
   });
 
   it('snapshot format decrypts correctly', async () => {
-    const encKey = 'XYZABC';
+    const encKey = '789-012';
     const snapshotPayload = {
       type: 'state',
       content: 'function hello() { return "world"; }',
@@ -54,7 +54,7 @@ describe('Live Share Encrypted State Flow', () => {
   });
 
   it('multiple state updates work with same key', async () => {
-    const encKey = 'ABCDEF';
+    const encKey = '123-456';
     const updates = [
       { content: 'v1', language: 'plaintext', version: 1 },
       { content: 'v2', language: 'javascript', version: 2 },
