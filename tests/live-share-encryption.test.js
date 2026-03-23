@@ -1,12 +1,13 @@
 /**
  * Integration tests for Live Share encrypted state flow.
  * Verifies that encrypted payloads can be round-tripped through the expected format.
+ * Uses the actual client/crypto-utils.js implementation.
  */
 import { describe, it, expect } from 'vitest';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const { encrypt, decrypt } = require('./crypto-impl.cjs');
+import {
+  encrypt,
+  decrypt
+} from './load-crypto-utils.mjs';
 
 describe('Live Share Encrypted State Flow', () => {
   it('host payload format matches viewer expectation', async () => {

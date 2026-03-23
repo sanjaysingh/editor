@@ -76,9 +76,9 @@
   }
 
   const api = { generateEncryptionKey, normalizeEncryptionKey, validateEncryptionKey, extractKeyForCrypto, encrypt, decrypt };
-  if (typeof root.window !== 'undefined') {
-    root.LiveShareCrypto = api;
-  }
+  // Always export to root (window in browser, global in Node)
+  root.LiveShareCrypto = api;
+  // Also export as CommonJS module if available
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = api;
   }

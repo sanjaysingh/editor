@@ -1,12 +1,17 @@
 /**
  * Unit tests for Live Share encryption/decryption.
+ * Uses the actual client/crypto-utils.js implementation (single source of truth).
  * Run with: npm test
  */
 import { describe, it, expect } from 'vitest';
-import { createRequire } from 'module';
-
-const require = createRequire(import.meta.url);
-const { encrypt, decrypt, normalizeEncryptionKey, validateEncryptionKey, generateEncryptionKey } = require('./crypto-impl.cjs');
+import {
+  generateEncryptionKey,
+  normalizeEncryptionKey,
+  validateEncryptionKey,
+  extractKeyForCrypto,
+  encrypt,
+  decrypt
+} from './load-crypto-utils.mjs';
 
 describe('Live Share Crypto', () => {
   describe('normalizeEncryptionKey', () => {
@@ -58,6 +63,18 @@ describe('Live Share Crypto', () => {
         keys.add(generateEncryptionKey());
       }
       expect(keys.size).toBeGreaterThan(40); // very unlikely to have duplicates
+    });
+  });
+
+  describe('extractKeyForCrypto', () => {
+    it('returns digits only from formatted key', () => {
+      expect(extractKeyForCrypto('123-456')).toBe('123456');
+      expect(extractKeyForCrypto('123456')).toBe('123456');
+    });
+
+    it('strips non-digits', () => {
+      expect(extractKeyForCrypto('ABC-DEF')).toBe('');
+      expect(extractKeyForCrypto('1a2b-3c4d')).toBe('1234');
     });
   });
 
