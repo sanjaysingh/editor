@@ -59,7 +59,7 @@
               <button id="copy-link-btn" class="icon-btn" title="Copy Session URL"><i class="fas fa-copy"></i></button>
             </div>
           </div>
-          <div id="share-encryption-row" class="share-info-row" style="display:none">
+          <div id="share-encryption-row" class="share-info-row">
             <label>Encryption Key</label>
             <div class="share-info-value">
               <span id="share-encryption-key"></span>
@@ -82,8 +82,8 @@
             <input id="join-key-input" placeholder="ABC-234" maxlength="7" inputmode="latin" autocomplete="off" autocapitalize="characters">
           </div>
           <div class="join-info-row">
-            <label>Encryption Key <span class="optional-label">(leave empty for unencrypted sessions)</span></label>
-            <input id="join-encryption-key-input" placeholder="123-456" maxlength="7" inputmode="numeric" autocomplete="off" title="6-digit encryption key from host (optional for unencrypted sessions)">
+            <label>Encryption Key</label>
+            <input id="join-encryption-key-input" placeholder="123-456" maxlength="7" inputmode="numeric" autocomplete="off" title="6-digit encryption key from host" required>
           </div>
         </div>
         <div class="modal-actions">
