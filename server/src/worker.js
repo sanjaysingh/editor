@@ -6,10 +6,7 @@ export class RoomDurableObject {
     this.hostWebSocket = null;
     this.room = {
       content: "",
-      selection: { start: 0, end: 0 },
-      language: "plaintext",
       version: 0,
-      encrypted: false,
       hostToken: null,
       hostConnected: false,
       active: false,
@@ -67,8 +64,6 @@ export class RoomDurableObject {
     const body = {
       active: this.room.active,
       content: this.room.content,
-      selection: this.room.selection,
-      language: this.room.language,
       version: this.room.version
     };
     return json(body, 200, corsHeaders(this.env, request));
@@ -134,30 +129,13 @@ export class RoomDurableObject {
       server.addEventListener("message", async (event) => {
         try {
           const msg = JSON.parse(event.data);
-          if (msg.type === "state") {
+          if (msg.type === "state" && msg.encrypted) {
             if (!this.room.active) return;
-            if (msg.encrypted) {
-              // Encrypted: pass through raw message; server stores cipher as content for snapshot
-              this.room.content = String(msg.content ?? "");
-              this.room.encrypted = true;
-              this.room.selection = { start: 0, end: 0 };
-              this.room.language = "plaintext";
-              this.room.version = (this.room.version || 0) + 1;
-              await this.state.storage.put("room", this.room);
-              for (const ws of this.viewers) {
-                try { ws.send(event.data); } catch {}
-              }
-            } else {
-              this.room.content = String(msg.content ?? "");
-              this.room.encrypted = false;
-              this.room.selection = msg.selection || { start: 0, end: 0 };
-              this.room.language = String(msg.language ?? this.room.language ?? "plaintext");
-              this.room.version = Number(msg.version || (this.room.version + 1));
-              await this.state.storage.put("room", this.room);
-              const payload = JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version });
-              for (const ws of this.viewers) {
-                try { ws.send(payload); } catch {}
-              }
+            this.room.content = String(msg.content ?? "");
+            this.room.version = (this.room.version || 0) + 1;
+            await this.state.storage.put("room", this.room);
+            for (const ws of this.viewers) {
+              try { ws.send(event.data); } catch {}
             }
           }
         } catch {}
@@ -186,9 +164,9 @@ export class RoomDurableObject {
     }
 
     server.accept();
-    // send initial state
+    // send initial encrypted state
     try {
-      server.send(JSON.stringify({ type: "state", content: this.room.content, selection: this.room.selection, language: this.room.language, version: this.room.version }));
+      server.send(JSON.stringify({ type: "state", content: this.room.content, encrypted: true, version: this.room.version }));
     } catch {}
     this.viewers.add(server);
     server.addEventListener("close", () => {

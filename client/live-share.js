@@ -123,7 +123,7 @@
   const joinCancelBtn = document.getElementById('join-cancel-btn');
   const joinEncInput = document.getElementById('join-encryption-key-input');
 
-  let session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+  let session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
   let version = 0;
   let sendTimer = null;
   let liveMenuEl = null;
@@ -178,16 +178,14 @@
     window.liveShareRole = role;
   }
 
-  function openShareModal(key, encrypted, encryptionKey){
+  function openShareModal(key, encryptionKey){
     shareKeyEl.textContent = key;
     // Generate share link using current page's base path
     const currentUrl = new URL(location.href);
     const basePath = currentUrl.pathname.replace(/\/[^\/]*$/, '/'); // Remove filename, keep directory
-    const link = encrypted ? `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}&e=1` : `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}`;
+    const link = `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}&e=1`;
     shareLinkEl.value = link;
     const encKeyEl = document.getElementById('share-encryption-key');
-    const encKeyRow = document.getElementById('share-encryption-row');
-    if (encKeyRow) encKeyRow.style.display = encrypted ? 'flex' : 'none';
     if (encKeyEl) encKeyEl.textContent = encryptionKey || '';
     shareModal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -239,23 +237,19 @@
   }
 
   async function sendStatePayload(payload) {
-    if (!session.ws) return;
-    if (session.encrypted && session.encryptionKey) {
-      try {
-        const plain = JSON.stringify(payload);
-        const cipher = await encrypt(plain, session.encryptionKey);
-        session.ws.send(JSON.stringify({ type: 'state', content: cipher, encrypted: true }));
-      } catch (e) { console.warn('Encryption failed', e); }
-    } else {
-      try { session.ws.send(JSON.stringify(payload)); } catch {}
-    }
+    if (!session.ws || !session.encryptionKey) return;
+    try {
+      const plain = JSON.stringify(payload);
+      const cipher = await encrypt(plain, session.encryptionKey);
+      session.ws.send(JSON.stringify({ type: 'state', content: cipher, encrypted: true }));
+    } catch (e) { console.warn('Encryption failed', e); }
   }
 
   function connectHost(key, hostToken){
     const url = api.wsUrl(key, 'host', hostToken);
     session.ws = new SafeWebSocket(url);
     session.ws.onopen = () => {
-      setLiveIndicator(session.encrypted ? `LIVE (Host: ${key}) [Encrypted]` : `LIVE (Host: ${key})`, true);
+      setLiveIndicator(`LIVE (Host: ${key})`, true);
       setButtonsForRole('host');
       // Send initial state immediately so viewers joining get current content and language
       const ed = getEditor();
@@ -280,21 +274,17 @@
   }
 
   async function applyStateMessage(msg) {
-    let content = msg.content;
-    let selection = msg.selection;
-    let language = msg.language;
-    let ver = msg.version;
-    if (session.encrypted && session.encryptionKey) {
-      try {
-        const decrypted = JSON.parse(await decrypt(content, session.encryptionKey));
-        content = decrypted.content;
-        selection = decrypted.selection;
-        language = decrypted.language;
-        ver = decrypted.version;
-      } catch (e) {
-        console.warn('Decryption failed', e);
-        return;
-      }
+    if (!session.encryptionKey) return;
+    let content, selection, language, ver;
+    try {
+      const decrypted = JSON.parse(await decrypt(msg.content, session.encryptionKey));
+      content = decrypted.content;
+      selection = decrypted.selection;
+      language = decrypted.language;
+      ver = decrypted.version;
+    } catch (e) {
+      console.warn('Decryption failed', e);
+      return;
     }
     const ed = getEditor();
     if (ed) {
@@ -317,7 +307,7 @@
     const url = api.wsUrl(key, 'viewer');
     session.ws = new SafeWebSocket(url);
     session.ws.onopen = () => {
-      setLiveIndicator(session.encrypted ? `LIVE (Viewing: ${key}) [Encrypted]` : `LIVE (Viewing: ${key})`, true);
+      setLiveIndicator(`LIVE (Viewing: ${key})`, true);
       disableEditing(true);
       setButtonsForRole('viewer');
       forceLayoutAndScrollTop();
@@ -333,7 +323,7 @@
         setTimeout(() => setLiveIndicator('', false), 2000);
         disableEditing(false);
         if (session.ws) try { session.ws.close(); } catch {}
-        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+        session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
         setButtonsForRole('idle');
         forceLayoutAndScrollTop();
         focusEditorSoon();
@@ -363,27 +353,9 @@
   function startLiveShare(){
     if (session.role === 'viewer') { alert('Viewers cannot start a new live share.'); return; }
     api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
-      session = { key, hostToken, role: 'host', ws: null, encrypted: false, encryptionKey: null };
-      openShareModal(key, false);
-      connectHost(key, hostToken);
-      const ed = getEditor();
-      if (ed) {
-        ed.onDidChangeModelContent(() => scheduleSend());
-        ed.onDidChangeCursorSelection(() => scheduleSend());
-        ed.onDidChangeModelLanguage(() => scheduleSend());
-      }
-      setButtonsForRole('host');
-      forceLayoutAndScrollTop();
-      focusEditorSoon();
-    }).catch((e) => alert(e.message || 'Failed to start live share'));
-  }
-
-  function startEncryptedLiveShare(){
-    if (session.role === 'viewer') { alert('Viewers cannot start a new live share.'); return; }
-    api.start(/* optional turnstile token */).then(({ key, hostToken, viewerUrl }) => {
       const encKey = generateEncryptionKey();
-      session = { key, hostToken, role: 'host', ws: null, encrypted: true, encryptionKey: encKey };
-      openShareModal(key, true, encKey);
+      session = { key, hostToken, role: 'host', ws: null, encryptionKey: encKey };
+      openShareModal(key, encKey);
       connectHost(key, hostToken);
       const ed = getEditor();
       if (ed) {
@@ -401,7 +373,7 @@
     if (!session.key || session.role !== 'host') return;
     api.stop(session.key, session.hostToken).finally(() => {
       if (session.ws) try { session.ws.close(); } catch {}
-      session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+      session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
       setLiveIndicator('', false);
       setButtonsForRole('idle');
       forceLayoutAndScrollTop();
@@ -410,19 +382,17 @@
   }
 
   async function applySnapshot(snap) {
-    let content = snap.content;
-    let language = snap.language;
-    if (session.encrypted && session.encryptionKey && content) {
-      try {
-        const decrypted = JSON.parse(await decrypt(String(content), session.encryptionKey));
-        content = decrypted.content;
-        language = decrypted.language;
-      } catch (e) {
-        alert('Invalid encryption key or corrupted data.');
-        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
-        setButtonsForRole('idle');
-        return false;
-      }
+    if (!session.encryptionKey || !snap.content) return false;
+    let content, language;
+    try {
+      const decrypted = JSON.parse(await decrypt(String(snap.content), session.encryptionKey));
+      content = decrypted.content;
+      language = decrypted.language;
+    } catch (e) {
+      alert('Invalid encryption key or corrupted data.');
+      session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
+      setButtonsForRole('idle');
+      return false;
     }
     if (window.editor && typeof content === 'string') {
       window.editor.setValue(content);
@@ -438,14 +408,17 @@
   function joinByKey(key, encryptionKey){
     const formatted = normalizeKey(key);
     if (!validateKey(formatted)) { alert('Invalid key. Use format ABC234 or ABC-234'); return; }
-    const encKey = encryptionKey ? normalizeEncryptionKey(encryptionKey) : null;
-    const isEncrypted = encKey && validateEncryptionKey(encKey);
-    session = { key: formatted, hostToken: null, role: 'viewer', ws: null, encrypted: isEncrypted, encryptionKey: isEncrypted ? encKey : null };
+    const encKey = normalizeEncryptionKey(encryptionKey);
+    if (!validateEncryptionKey(encKey)) {
+      alert('Please enter a valid encryption key in format 123-456.');
+      return;
+    }
+    session = { key: formatted, hostToken: null, role: 'viewer', ws: null, encryptionKey: encKey };
     setButtonsForRole('viewer');
     api.snapshot(formatted).then(async (snap) => {
       if (!snap.active) {
         alert('Session not active');
-        session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+        session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
         setButtonsForRole('idle');
         return;
       }
@@ -453,7 +426,7 @@
       if (ok) connectViewer(formatted);
     }).catch(() => {
       alert('Failed to join session');
-      session = { key: null, hostToken: null, role: 'idle', ws: null, encrypted: false, encryptionKey: null };
+      session = { key: null, hostToken: null, role: 'idle', ws: null, encryptionKey: null };
       setButtonsForRole('idle');
     });
   }
@@ -474,8 +447,7 @@
       `;
     } else {
       menu.innerHTML = `
-        <button type="button" data-action="start"><i class="fas fa-play"></i> Start Live Share</button>
-        <button type="button" data-action="start-encrypted"><i class="fas fa-lock"></i> Start Encrypted Live Share</button>
+        <button type="button" data-action="start"><i class="fas fa-lock"></i> Start Live Share</button>
         <button type="button" data-action="join"><i class="fas fa-link"></i> Join Session</button>
       `;
     }
@@ -490,10 +462,9 @@
       if (!btn) return;
       const action = btn.getAttribute('data-action');
       if (action === 'start') startLiveShare();
-      if (action === 'start-encrypted') startEncryptedLiveShare();
       if (action === 'join') openJoinModal();
       if (action === 'stop') stopLiveShare();
-      if (action === 'show') { openShareModal(session.key, session.encrypted, session.encryptionKey); }
+      if (action === 'show') { openShareModal(session.key, session.encryptionKey); }
       closeLiveMenu();
     });
 
@@ -566,14 +537,12 @@
   if (joinConfirmBtn) joinConfirmBtn.addEventListener('click', () => {
     const k = joinKeyInput.value;
     const encK = joinEncInput?.value?.trim() || '';
-    // If encryption key is provided, validate it; otherwise treat as unencrypted
-    const hasEncKey = encK.length > 0;
-    if (hasEncKey && !validateEncryptionKey(encK)) {
-      alert('Please enter a valid encryption key in format 123-456, or leave empty for unencrypted sessions.');
+    if (!validateEncryptionKey(encK)) {
+      alert('Please enter a valid encryption key in format 123-456.');
       return;
     }
     closeJoinModal();
-    joinByKey(k, hasEncKey ? encK : undefined);
+    joinByKey(k, encK);
   });
   const submitJoin = () => { joinConfirmBtn?.click(); };
   joinKeyInput?.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitJoin(); }});
@@ -602,41 +571,11 @@
     }
   });
 
-  // Auto-join if URL has ?share=KEY
-  // Encrypted links (?share=KEY&e=1): show join modal with key pre-filled so user can enter encryption key
-  // Non-encrypted: defer until editor is ready so snapshot content can be applied
+  // Auto-join if URL has ?share=KEY — always show join modal so user can enter encryption key
   const urlParams = new URLSearchParams(location.search);
   const initialKey = urlParams.get('share');
-  const isEncryptedLink = urlParams.get('e') === '1';
   const normalizedInitial = normalizeKey(initialKey);
   if (validateKey(normalizedInitial)) {
-    if (isEncryptedLink) {
-      // Show join modal for encrypted sessions so user can enter the encryption key
-      openJoinModal({ key: normalizedInitial });
-    } else {
-      const doJoin = () => {
-        joinByKey(normalizedInitial);
-      };
-      if (getEditor()) {
-        doJoin();
-      } else {
-        let attempts = 0;
-        const maxAttempts = 300; // ~5s at 60fps
-        const checkEditor = () => {
-          if (getEditor()) {
-            doJoin();
-            return;
-          }
-          if (++attempts < maxAttempts) {
-            requestAnimationFrame(checkEditor);
-          }
-        };
-        if (document.readyState === 'complete') {
-          checkEditor();
-        } else {
-          window.addEventListener('load', () => setTimeout(checkEditor, 50));
-        }
-      }
-    }
+    openJoinModal({ key: normalizedInitial });
   }
 })(); 

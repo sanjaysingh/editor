@@ -9,7 +9,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 - **Multiple themes** (dark, light, high contrast)
 - **Drag & drop files** to open them instantly
 - **Zero network requests** for the editor — everything runs locally in your browser
-- **Optional Live Share**: broadcast your editor state to viewers in real time (read-only for viewers)
+- **Optional Live Share**: broadcast your editor state to viewers in real time with end-to-end encryption (read-only for viewers)
 
 ## 🎯 Perfect for
 
@@ -42,8 +42,9 @@ A lightweight, browser-based code editor that works completely offline — with 
 ## Live Share
 
 ### Overview
-- Host starts a session to generate a short key like `ABC-234` and a sharable URL
-- Viewers join with the key or open the URL; their editor becomes read-only
+- Host starts a session to generate a short key like `ABC-234`, an encryption key like `123-456`, and a sharable URL
+- Viewers join with the session key and encryption key (or open the URL and enter the encryption key); their editor becomes read-only
+- All editor content is encrypted end-to-end before leaving the browser; the server only relays ciphertext
 - Host's content, cursor position, and language selection are broadcast live to all viewers via WebSockets
 - Viewers automatically receive language changes from the host (language dropdown is disabled for viewers)
 - Host can stop the session at any time (viewers see "Session ended")
@@ -68,14 +69,14 @@ DO-->>Host: accept
 
 Viewer->>Worker: GET /api/share/snapshot/:key
 Worker->>DO: snapshot
-DO-->>Viewer: { active, content, selection, language, version }
+DO-->>Viewer: { active, content (ciphertext), version }
 
 Viewer->>Worker: WS /ws/:key?role=viewer
 Worker->>DO: WS upgrade (viewer)
-DO-->>Viewer: initial state
+DO-->>Viewer: initial encrypted state
 
-Host-->>DO: send state {content, selection, language, version}
-DO-->>Viewer: broadcast state
+Host-->>DO: send encrypted state {content: cipher, encrypted: true}
+DO-->>Viewer: broadcast encrypted state
 
 Host->>Worker: POST /api/share/stop
 Worker->>DO: stop {hostToken}
@@ -83,8 +84,8 @@ DO-->>Viewer: ended
 ```
 
 ### UI Quickstart
-- Start: click the signal icon to start Live Share; copy the link from the dialog
-- Join: click the link or use the link icon and enter the key (format `ABC-234`)
+- Start: click the signal icon to start Live Share; copy the session URL and encryption key from the dialog
+- Join: click the link or use the link icon, enter the session key (format `ABC-234`) and encryption key (format `123-456`)
 - Stop: host clicks the stop icon
 
 ---

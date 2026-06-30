@@ -409,13 +409,6 @@ select {
     color: var(--text-secondary);
     font-weight: 500;
 }
-.optional-label {
-    text-transform: none;
-    font-weight: normal;
-    font-size: 11px;
-    color: #888;
-    letter-spacing: 0;
-}
 .join-info-row input {
     width: 100%;
     padding: 12px 14px;
@@ -480,9 +473,6 @@ select {
   .join-info-row input {
     padding: 14px 16px;
     font-size: 16px; /* prevent iOS zoom */
-  }
-  .optional-label {
-    font-size: 10px;
   }
 } 
 
