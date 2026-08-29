@@ -32,6 +32,24 @@ describe('Markdown render', () => {
     expect(html).toContain('sequenceDiagram');
   });
 
+  it('keeps adjacent mermaid fences as separate diagram sources', () => {
+    const html = render('```mermaid\nflowchart TD\n  A-->B\n```\n\n```mermaid\nsequenceDiagram\n  Alice->>Bob: hi\n```');
+    const blocks = html.match(/<pre class="mermaid-source">[\s\S]*?<\/pre>/g) || [];
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]).toContain('flowchart TD');
+    expect(blocks[0]).not.toContain('sequenceDiagram');
+    expect(blocks[1]).toContain('sequenceDiagram');
+    expect(blocks[1]).not.toContain('flowchart TD');
+  });
+
+  it('closes mermaid fences even when the closer is indented', () => {
+    const html = render('```mermaid\nflowchart TD\n  A-->B\n    ```\n\nAfter');
+    expect(html).toContain('<pre class="mermaid-source">');
+    expect(html).toContain('A--&gt;B');
+    expect(html).toContain('<p>After</p>');
+    expect(html).not.toContain('After</pre>');
+  });
+
   it('renders lists, task lists, and nested lists', () => {
     const html = render('- one\n- two\n  - nested\n\n- [x] done\n- [ ] todo');
     expect(html).toContain('<ul>');

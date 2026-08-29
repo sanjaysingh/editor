@@ -327,7 +327,7 @@
       i++;
       const body = [];
       while (i < lines.length) {
-        const close = lines[i].match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+        const close = lines[i].match(/^\s*(`{3,}|~{3,})\s*$/);
         if (close && close[1][0] === delim && close[1].length >= fenceLen) {
           i++;
           break;

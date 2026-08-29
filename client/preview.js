@@ -164,27 +164,57 @@
     return mermaidLoader;
   }
 
+  async function flushMermaidParser(mermaid) {
+    try {
+      if (typeof mermaid.parse === 'function') {
+        await mermaid.parse('flowchart TD\nA-->B');
+      }
+    } catch {}
+  }
+
   async function renderMermaidSvg(source, mermaid, { id } = {}) {
     const text = String(source || '').trim();
     if (!text) throw new Error('Empty diagram');
     const renderId = id || `mermaid-preview-${Math.random().toString(36).slice(2, 10)}`;
-    const result = await mermaid.render(renderId, text);
-    const svg = result && result.svg ? result.svg : '';
-    if (!svg) throw new Error('Empty SVG');
-    return sanitizeMermaidSvg(svg);
+
+    async function draw(drawId) {
+      const result = await mermaid.render(drawId, text);
+      const svg = result && result.svg ? result.svg : '';
+      if (!svg) throw new Error('Empty SVG');
+      return sanitizeMermaidSvg(svg);
+    }
+
+    try {
+      return await draw(renderId);
+    } catch (err) {
+      await flushMermaidParser(mermaid);
+      try {
+        return await draw(`${renderId}-retry`);
+      } catch {
+        throw err;
+      }
+    }
   }
 
-  function mermaidErrorElement(source) {
+  function mermaidErrorElement(source, message) {
     const wrap = document.createElement('div');
     wrap.className = 'mermaid-error';
     wrap.setAttribute('role', 'alert');
     const msg = document.createElement('p');
     msg.textContent = 'Unable to render Mermaid diagram';
+    if (message) {
+      const detail = document.createElement('p');
+      detail.className = 'mermaid-error-detail';
+      detail.textContent = String(message);
+      wrap.appendChild(msg);
+      wrap.appendChild(detail);
+    } else {
+      wrap.appendChild(msg);
+    }
     const pre = document.createElement('pre');
     const code = document.createElement('code');
     code.textContent = String(source || '');
     pre.appendChild(code);
-    wrap.appendChild(msg);
     wrap.appendChild(pre);
     return wrap;
   }
@@ -223,9 +253,9 @@
         wrap.setAttribute('role', 'img');
         wrap.innerHTML = svg;
         el.replaceWith(wrap);
-      } catch {
+      } catch (err) {
         if (isStale && isStale()) return;
-        el.replaceWith(mermaidErrorElement(source));
+        el.replaceWith(mermaidErrorElement(source, err && err.message));
       } finally {
         const leftover = typeof document !== 'undefined' ? document.getElementById(`d${id}`) : null;
         if (leftover) leftover.remove();

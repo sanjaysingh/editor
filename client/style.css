@@ -437,6 +437,13 @@ select {
     font-size: 0.9em;
 }
 
+.markdown-body .mermaid-error-detail {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.8em;
+    opacity: 0.9;
+    white-space: pre-wrap;
+}
+
 #preview-pane[data-theme="vs"] .markdown-body .mermaid-error p,
 #preview-pane[data-theme="hc-light"] .markdown-body .mermaid-error p {
     color: #cf222e;

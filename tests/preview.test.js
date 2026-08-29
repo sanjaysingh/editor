@@ -122,4 +122,19 @@ describe('Mermaid preview helpers', () => {
   it('rejects empty mermaid sources', async () => {
     await expect(renderMermaidSvg('   ', { render: async () => ({ svg: '<svg/>' }) })).rejects.toThrow('Empty diagram');
   });
+
+  it('retries mermaid render after a failed parse', async () => {
+    let calls = 0;
+    const mermaid = {
+      parse: async () => {},
+      render: async (id) => {
+        calls += 1;
+        if (calls === 1) throw new Error('stale parser');
+        return { svg: `<svg id="${id}"><text>ok</text></svg>` };
+      }
+    };
+    const svg = await renderMermaidSvg('flowchart TD; A-->B', mermaid, { id: 'retry1' });
+    expect(calls).toBe(2);
+    expect(svg).toContain('ok');
+  });
 });
