@@ -87,6 +87,7 @@ button:hover {
 /* Icon button styles */
 #open-file-btn,
 #format-btn,
+#markdown-preview-btn,
 #start-share-btn,
 #join-share-btn,
 #stop-share-btn {
@@ -100,6 +101,7 @@ button:hover {
 
 #open-file-btn i,
 #format-btn i,
+#markdown-preview-btn i,
 #start-share-btn i,
 #join-share-btn i {
     font-size: 16px;
@@ -108,6 +110,7 @@ button:hover {
 
 #open-file-btn:hover i,
 #format-btn:hover i,
+#markdown-preview-btn:hover i,
 #start-share-btn:hover i,
 #join-share-btn:hover i {
     color: var(--icon-hover-color);
@@ -115,6 +118,10 @@ button:hover {
 }
 
 /* Add a subtle highlight to format button */
+#markdown-preview-btn[hidden] {
+    display: none;
+}
+
 #format-btn {
     background-color: #3a3a3a;
 }
@@ -129,17 +136,283 @@ select {
     background-color: var(--bg-control);
 }
 
-/* Editor container */
-#editor-container {
+/* Workspace: editor + optional markdown preview */
+#workspace {
     width: 100%;
     height: calc(var(--app-vh, 100vh) - 50px - 25px);
+    display: flex;
     position: relative;
+    min-height: 0;
 }
 
 @supports (height: 100dvh) {
-    #editor-container {
+    #workspace {
         height: calc(100dvh - 50px - 25px);
     }
+}
+
+#editor-container {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+}
+
+#workspace.preview-only #editor-container {
+    display: none;
+}
+
+#markdown-preview-pane {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--border-color);
+    background: #1e1e1e;
+}
+
+#markdown-preview-pane[hidden] {
+    display: none;
+}
+
+#workspace.preview-only #markdown-preview-pane {
+    border-left: none;
+}
+
+.markdown-preview-header {
+    flex-shrink: 0;
+    padding: 6px 16px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+}
+
+#markdown-preview-body {
+    flex: 1;
+    overflow: auto;
+    padding: 16px 24px 32px;
+    color: #d4d4d4;
+}
+
+#markdown-preview-pane[data-theme="vs"],
+#markdown-preview-pane[data-theme="hc-light"] {
+    background: #f6f8fa;
+}
+
+#markdown-preview-pane[data-theme="vs"] #markdown-preview-body,
+#markdown-preview-pane[data-theme="hc-light"] #markdown-preview-body {
+    color: #1f2328;
+}
+
+#markdown-preview-pane[data-theme="hc-light"] {
+    background: #fff;
+}
+
+#markdown-preview-pane[data-theme="hc-black"] {
+    background: #000;
+}
+
+#markdown-preview-pane[data-theme="hc-black"] #markdown-preview-body {
+    color: #fff;
+}
+
+.markdown-preview-empty {
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.markdown-body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    word-wrap: break-word;
+}
+
+.markdown-body > *:first-child {
+    margin-top: 0;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+    margin: 1.4em 0 0.6em;
+    line-height: 1.25;
+    color: #fff;
+    font-weight: 600;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body h1,
+#markdown-preview-pane[data-theme="vs"] .markdown-body h2,
+#markdown-preview-pane[data-theme="vs"] .markdown-body h3,
+#markdown-preview-pane[data-theme="vs"] .markdown-body h4,
+#markdown-preview-pane[data-theme="vs"] .markdown-body h5,
+#markdown-preview-pane[data-theme="vs"] .markdown-body h6,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h1,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h2,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h3,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h4,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h5,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body h6 {
+    color: #1f2328;
+}
+
+.markdown-body h1 { font-size: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.markdown-body h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+.markdown-body h3 { font-size: 1.25em; }
+.markdown-body h4 { font-size: 1em; }
+
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body blockquote,
+.markdown-body table,
+.markdown-body pre {
+    margin: 0 0 1em;
+}
+
+.markdown-body a {
+    color: #4ea1ff;
+    text-decoration: none;
+}
+
+.markdown-body a:hover {
+    text-decoration: underline;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body a,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body a {
+    color: #0969da;
+}
+
+.markdown-body strong { font-weight: 700; }
+.markdown-body em { font-style: italic; }
+.markdown-body del { text-decoration: line-through; opacity: 0.85; }
+
+.markdown-body code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    font-size: 0.9em;
+    background: #2d2d2d;
+    padding: 0.15em 0.4em;
+    border-radius: 4px;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body code,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body code {
+    background: #eff1f3;
+}
+
+#markdown-preview-pane[data-theme="hc-black"] .markdown-body code,
+#markdown-preview-pane[data-theme="hc-black"] .markdown-body pre {
+    background: #000;
+    border: 1px solid #fff;
+}
+
+.markdown-body pre {
+    background: #2d2d2d;
+    padding: 12px 16px;
+    border-radius: 6px;
+    overflow: auto;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body pre,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body pre {
+    background: #eff1f3;
+}
+
+.markdown-body pre code {
+    background: transparent;
+    padding: 0;
+    font-size: 0.875em;
+}
+
+.markdown-body blockquote {
+    margin-left: 0;
+    padding: 0.2em 1em;
+    border-left: 4px solid #4ea1ff;
+    color: #9d9d9d;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body blockquote,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body blockquote {
+    color: #656d76;
+    border-left-color: #0969da;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+    padding-left: 2em;
+}
+
+.markdown-body li {
+    margin: 0.25em 0;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+    margin: 0.25em 0 0.5em;
+}
+
+.markdown-body hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 1.5em 0;
+}
+
+.markdown-body table {
+    border-collapse: collapse;
+    display: block;
+    overflow: auto;
+    width: max-content;
+    max-width: 100%;
+}
+
+.markdown-body th,
+.markdown-body td {
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+}
+
+.markdown-body th {
+    background: #252525;
+    font-weight: 600;
+}
+
+#markdown-preview-pane[data-theme="vs"] .markdown-body th,
+#markdown-preview-pane[data-theme="hc-light"] .markdown-body th {
+    background: #f6f8fa;
+}
+
+.markdown-body img {
+    max-width: 100%;
+    height: auto;
+}
+
+.markdown-body .task-list {
+    list-style: none;
+    padding-left: 1em;
+}
+
+.markdown-body .task-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.markdown-body .task-list-item input[type="checkbox"] {
+    margin-top: 0.35em;
+}
+
+#markdown-preview-btn[aria-pressed="true"] {
+    background: #3a4a5a;
 }
 
 /* File input hidden by default */
@@ -227,6 +500,7 @@ select {
     
     #open-file-btn,
     #format-btn,
+    #markdown-preview-btn,
     #start-share-btn,
     #join-share-btn,
     #stop-share-btn {
@@ -239,8 +513,18 @@ select {
         min-width: 100px;
     }
 
-    #editor-container {
+    #workspace {
         height: calc(var(--app-vh, 100vh) - 90px - 25px);
+    }
+
+    #workspace.split-markdown {
+        flex-direction: column;
+    }
+
+    #workspace.split-markdown #markdown-preview-pane {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        min-height: 40%;
     }
 } 
 

@@ -155,6 +155,11 @@ const languageDetector = {
         'php': 'php',
         'sql': 'sql',
         'md': 'markdown',
+        'markdown': 'markdown',
+        'mdown': 'markdown',
+        'mkd': 'markdown',
+        'mdtxt': 'markdown',
+        'mdtext': 'markdown',
         'json': 'json',
         'ps1': 'powershell',
         'psm1': 'powershell',
@@ -287,6 +292,52 @@ const languageDetector = {
     }
 };
 
+if (typeof MarkdownSupport !== 'undefined' && MarkdownSupport.detection) {
+    languageDetector.signatures.markdown = MarkdownSupport.detection;
+}
+
+const defaultFileExtensions = {
+    plaintext: 'txt',
+    cpp: 'cpp',
+    csharp: 'cs',
+    css: 'css',
+    go: 'go',
+    html: 'html',
+    java: 'java',
+    javascript: 'js',
+    json: 'json',
+    markdown: 'md',
+    php: 'php',
+    powershell: 'ps1',
+    python: 'py',
+    ruby: 'rb',
+    sql: 'sql',
+    typescript: 'ts',
+    xml: 'xml',
+    yaml: 'yml'
+};
+
+function getDownloadFilename() {
+    const current = document.getElementById('file-path')?.textContent?.trim();
+    if (current && current !== 'No file opened') return current;
+    const lang = editor?.getModel?.()?.getLanguageId?.() || 'plaintext';
+    return `untitled.${defaultFileExtensions[lang] || 'txt'}`;
+}
+
+function downloadEditorContent() {
+    const content = editor.getValue();
+    const filename = getDownloadFilename();
+    const type = filename.endsWith('.md') || filename.endsWith('.markdown') ? 'text/markdown' : 'text/plain';
+    const blob = new Blob([content], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
 // File handling
 async function handleFile(file) {
     try {
@@ -316,6 +367,14 @@ async function formatCode() {
         const model = editor.getModel();
         if (!model) return;
         const languageId = model.getLanguageId();
+
+        if (languageId === 'markdown' && typeof MarkdownSupport !== 'undefined') {
+            const formatted = MarkdownSupport.format(model.getValue());
+            if (formatted !== model.getValue()) {
+                model.setValue(formatted);
+            }
+            return;
+        }
 
         // Special-case JSON to ensure pretty-printing even if built-in formatter is limited
         if (languageId === 'json') {
@@ -475,14 +534,7 @@ function registerFormatters() {
 function registerCommands() {
     // Save shortcut (Ctrl+S) - shows save dialog since we can't actually save
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, function() {
-        const content = editor.getValue();
-        const blob = new Blob([content], { type: 'text/plain' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = document.getElementById('file-path').textContent || 'untitled.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        downloadEditorContent();
     });
     
     // Format code shortcut (Alt+Shift+F)
@@ -503,6 +555,12 @@ function registerCommands() {
         editor.getAction('editor.action.startFindReplaceAction').run();
     });
     
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyM, function() {
+        if (typeof MarkdownSupport !== 'undefined') {
+            MarkdownSupport.preview.cycleMode();
+        }
+    });
+
     // Go to line (Ctrl+G)
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyG, function() {
         editor.getAction('editor.action.gotoLine').run();
@@ -513,12 +571,18 @@ function registerCommands() {
 function changeTheme(theme) {
     monaco.editor.setTheme(theme);
     editorSettings.theme = theme;
+    if (typeof MarkdownSupport !== 'undefined') {
+        MarkdownSupport.preview.setTheme(theme);
+    }
 }
 
 // Initialize editor
 function initializeEditor() {
     // Register language formatters
     registerFormatters();
+    if (typeof MarkdownSupport !== 'undefined') {
+        MarkdownSupport.registerWithMonaco(monaco);
+    }
     
     // Create editor instance with improved settings
     editor = monaco.editor.create(document.getElementById('editor-container'), {
@@ -571,6 +635,11 @@ function initializeEditor() {
     
     // Register keyboard shortcuts and commands
     registerCommands();
+
+    if (typeof MarkdownSupport !== 'undefined') {
+        MarkdownSupport.preview.attach(editor);
+        MarkdownSupport.preview.setTheme(editorSettings.theme);
+    }
 
     // Set up event listeners
     setupEventListeners();
@@ -659,51 +728,29 @@ function setupEventListeners() {
     // Window resize handling
     window.addEventListener('resize', () => editor.layout());
 
-    // Editor paste handling
+    function maybeDetectLanguage() {
+        if (window.liveShareRole === 'viewer') return;
+        const model = editor.getModel();
+        if (!model) return;
+        const currentLanguage = model.getLanguageId();
+        const content = model.getValue();
+        const isEmptyOrMinimal = content.trim().length < 10;
+        if (currentLanguage !== 'plaintext' && !isEmptyOrMinimal) return;
+        const detectedLanguage = languageDetector.fromContent(content);
+        if (detectedLanguage && detectedLanguage !== 'plaintext') {
+            document.getElementById('language-select').value = detectedLanguage;
+            monaco.editor.setModelLanguage(model, detectedLanguage);
+        }
+    }
+
     editor.onDidPaste(() => {
-        setTimeout(() => {
-            // Skip auto-detection if in live share viewer mode
-            if (window.liveShareRole === 'viewer') return;
-            
-            const currentLanguage = editor.getModel().getLanguageId();
-            const content = editor.getValue();
-            
-            // Only detect language if:
-            // 1. Current selection is 'plaintext', OR
-            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
-            const isEmptyOrMinimal = content.trim().length < 10;
-            
-            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
-                const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage && detectedLanguage !== 'plaintext') {
-                    document.getElementById('language-select').value = detectedLanguage;
-                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
-                }
-            }
-        }, 100);
+        setTimeout(maybeDetectLanguage, 100);
     });
 
-    // Editor content change handling
     editor.onDidChangeModelContent((e) => {
-        if (e.isFlush) {
-            // Skip auto-detection if in live share viewer mode
-            if (window.liveShareRole === 'viewer') return;
-            
-            const currentLanguage = editor.getModel().getLanguageId();
-            const content = editor.getValue();
-            
-            // Only detect language if:
-            // 1. Current selection is 'plaintext', OR  
-            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
-            const isEmptyOrMinimal = content.trim().length < 10;
-            
-            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
-                const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage && detectedLanguage !== 'plaintext') {
-                    document.getElementById('language-select').value = detectedLanguage;
-                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
-                }
-            }
+        const added = (e.changes || []).reduce((n, change) => n + (change.text ? change.text.length : 0), 0);
+        if (e.isFlush || added >= 40) {
+            setTimeout(maybeDetectLanguage, 100);
         }
     });
 
@@ -734,14 +781,7 @@ function setupEventListeners() {
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
             editor.getAction('editor.action.formatDocument').run().then(() => {
-                const content = editor.getValue();
-                const blob = new Blob([content], { type: 'text/plain' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = document.getElementById('file-path').textContent || 'untitled.txt';
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                downloadEditorContent();
             });
         }
     });
