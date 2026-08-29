@@ -144,7 +144,10 @@ const languageDetector = {
         'js': 'javascript',
         'ts': 'typescript',
         'html': 'html',
+        'htm': 'html',
+        'xhtml': 'html',
         'xml': 'xml',
+        'svg': 'xml',
         'css': 'css',
         'py': 'python',
         'java': 'java',
@@ -222,6 +225,9 @@ const languageDetector = {
         // Check for HTML first (most distinctive pattern)
         if (/<!DOCTYPE\s+html>|<html[\s>]/i.test(content)) {
             return 'html';
+        }
+        if (typeof PreviewSupport !== 'undefined' && PreviewSupport.isSvg(content)) {
+            return 'xml';
         }
 
         // Helper functions
@@ -321,13 +327,20 @@ function getDownloadFilename() {
     const current = document.getElementById('file-path')?.textContent?.trim();
     if (current && current !== 'No file opened') return current;
     const lang = editor?.getModel?.()?.getLanguageId?.() || 'plaintext';
+    const content = editor?.getValue?.() || '';
+    if (lang === 'xml' && typeof PreviewSupport !== 'undefined' && PreviewSupport.isSvg(content)) {
+        return 'untitled.svg';
+    }
     return `untitled.${defaultFileExtensions[lang] || 'txt'}`;
 }
 
 function downloadEditorContent() {
     const content = editor.getValue();
     const filename = getDownloadFilename();
-    const type = filename.endsWith('.md') || filename.endsWith('.markdown') ? 'text/markdown' : 'text/plain';
+    let type = 'text/plain';
+    if (/\.(md|markdown)$/i.test(filename)) type = 'text/markdown';
+    else if (/\.(html|htm|xhtml)$/i.test(filename)) type = 'text/html';
+    else if (/\.svg$/i.test(filename)) type = 'image/svg+xml';
     const blob = new Blob([content], { type });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -556,8 +569,8 @@ function registerCommands() {
     });
     
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyM, function() {
-        if (typeof MarkdownSupport !== 'undefined') {
-            MarkdownSupport.preview.cycleMode();
+        if (typeof PreviewSupport !== 'undefined') {
+            PreviewSupport.preview.cycleMode();
         }
     });
 
@@ -571,8 +584,8 @@ function registerCommands() {
 function changeTheme(theme) {
     monaco.editor.setTheme(theme);
     editorSettings.theme = theme;
-    if (typeof MarkdownSupport !== 'undefined') {
-        MarkdownSupport.preview.setTheme(theme);
+    if (typeof PreviewSupport !== 'undefined') {
+        PreviewSupport.preview.setTheme(theme);
     }
 }
 
@@ -636,9 +649,9 @@ function initializeEditor() {
     // Register keyboard shortcuts and commands
     registerCommands();
 
-    if (typeof MarkdownSupport !== 'undefined') {
-        MarkdownSupport.preview.attach(editor);
-        MarkdownSupport.preview.setTheme(editorSettings.theme);
+    if (typeof PreviewSupport !== 'undefined') {
+        PreviewSupport.preview.attach(editor);
+        PreviewSupport.preview.setTheme(editorSettings.theme);
     }
 
     // Set up event listeners

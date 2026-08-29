@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="A lightweight offline code editor with syntax highlighting, formatting, and Markdown preview">
+    <meta name="description" content="A lightweight offline code editor with syntax highlighting, formatting, and live Markdown, HTML, and SVG preview">
     <!-- Set this to your Worker base URL when not on the same origin, e.g. https://editor-live-share.your-subdomain.workers.dev -->
     <meta name="live-share-base" content="https://editor-live-share-api.sanjaysingh.net">
     <title>Offline Code Editor</title>
@@ -24,7 +24,7 @@
             <button id="format-btn" aria-label="Format Code" onclick="formatCode()">
                 <i class="fas fa-indent"></i>
             </button>
-            <button id="markdown-preview-btn" aria-label="Toggle Markdown Preview" title="Markdown preview (Ctrl+Shift+M)" hidden>
+            <button id="preview-btn" aria-label="Toggle Preview" title="Preview (Ctrl+Shift+M)" hidden>
                 <i class="fas fa-columns"></i>
             </button>
             <select id="language-select" aria-label="Select Language">
@@ -40,9 +40,10 @@
     </header>
     <main id="workspace">
         <div id="editor-container" role="application" aria-label="Code Editor"></div>
-        <section id="markdown-preview-pane" hidden>
-            <header class="markdown-preview-header">Preview</header>
+        <section id="preview-pane" hidden>
+            <header id="preview-header" class="preview-header">Preview</header>
             <div id="markdown-preview-body" class="markdown-body" tabindex="0"></div>
+            <iframe id="html-preview-frame" title="Document preview" sandbox="allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer" hidden></iframe>
         </section>
     </main>
     <div id="live-indicator" class="live-indicator" style="display:none"></div>
@@ -103,6 +104,7 @@
     </div>
 
     <script src="markdown.js?v=__CACHE_VERSION__"></script>
+    <script src="preview.js?v=__CACHE_VERSION__"></script>
     <script src="app.js?v=__CACHE_VERSION__"></script>
     <script src="crypto-utils.js?v=__CACHE_VERSION__"></script>
     <script src="live-share.js?v=__CACHE_VERSION__"></script>

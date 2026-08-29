@@ -1,10 +1,8 @@
 /**
- * Markdown rendering, formatting, and live preview.
+ * Markdown rendering, formatting, and detection.
  * XSS-safe: user text is escaped; only http(s)/mailto/# links and http(s)/data-image sources are allowed.
  */
 (function (root) {
-  const PREVIEW_MODES = ['split', 'preview', 'off'];
-  const STORAGE_KEY = 'markdownPreviewMode';
 
   function escapeHtml(text) {
     return String(text)
@@ -601,126 +599,6 @@
     ]
   };
 
-  const preview = {
-    editor: null,
-    mode: 'split',
-    debounce: null,
-    observer: null,
-
-    attach(editor) {
-      this.editor = editor;
-      this.mode = this.readStoredMode();
-      const btn = document.getElementById('markdown-preview-btn');
-      if (btn) {
-        btn.addEventListener('click', () => this.cycleMode());
-      }
-      editor.onDidChangeModelContent(() => this.schedule());
-      editor.onDidChangeModelLanguage(() => this.syncLanguage());
-      this.observer = null;
-      if (typeof ResizeObserver !== 'undefined') {
-        this.observer = new ResizeObserver(() => {
-          try { editor.layout(); } catch {}
-        });
-        const container = document.getElementById('editor-container');
-        if (container) this.observer.observe(container);
-      }
-      this.syncLanguage();
-    },
-
-    readStoredMode() {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (PREVIEW_MODES.includes(stored)) return stored;
-      } catch {}
-      return 'split';
-    },
-
-    storeMode() {
-      try { localStorage.setItem(STORAGE_KEY, this.mode); } catch {}
-    },
-
-    isMarkdown() {
-      return this.editor?.getModel?.()?.getLanguageId?.() === 'markdown';
-    },
-
-    cycleMode() {
-      if (!this.isMarkdown()) return;
-      const idx = PREVIEW_MODES.indexOf(this.mode);
-      this.mode = PREVIEW_MODES[(idx + 1) % PREVIEW_MODES.length];
-      this.storeMode();
-      this.applyMode();
-      this.render();
-    },
-
-    syncLanguage() {
-      if (this.isMarkdown()) {
-        if (!PREVIEW_MODES.includes(this.mode)) this.mode = 'split';
-        this.applyMode();
-        this.render();
-      } else {
-        this.applyMode(true);
-      }
-    },
-
-    applyMode(forceOff) {
-      const workspace = document.getElementById('workspace');
-      const pane = document.getElementById('markdown-preview-pane');
-      const btn = document.getElementById('markdown-preview-btn');
-      const markdown = this.isMarkdown() && !forceOff;
-      const mode = markdown ? this.mode : 'off';
-
-      if (workspace) {
-        workspace.classList.toggle('split-markdown', mode === 'split');
-        workspace.classList.toggle('preview-only', mode === 'preview');
-        workspace.classList.toggle('editor-only', mode === 'off' || !markdown);
-      }
-      if (pane) pane.hidden = !markdown || mode === 'off';
-      if (btn) {
-        btn.hidden = !markdown;
-        btn.setAttribute('aria-pressed', markdown && mode !== 'off' ? 'true' : 'false');
-        const titles = {
-          split: 'Split preview — click for preview only (Ctrl+Shift+M)',
-          preview: 'Preview only — click for editor only (Ctrl+Shift+M)',
-          off: 'Editor only — click for split preview (Ctrl+Shift+M)'
-        };
-        btn.title = titles[mode] || titles.split;
-        const icon = btn.querySelector('i');
-        if (icon) {
-          icon.className = mode === 'preview' ? 'fas fa-eye' : mode === 'off' ? 'fas fa-eye-slash' : 'fas fa-columns';
-        }
-      }
-      requestAnimationFrame(() => {
-        try { this.editor?.layout?.(); } catch {}
-      });
-    },
-
-    schedule() {
-      if (!this.isMarkdown() || this.mode === 'off') return;
-      clearTimeout(this.debounce);
-      this.debounce = setTimeout(() => this.render(), 120);
-    },
-
-    setTheme(theme) {
-      const pane = document.getElementById('markdown-preview-pane');
-      if (pane) pane.setAttribute('data-theme', theme || 'vs-dark');
-      this.render();
-    },
-
-    render() {
-      const body = document.getElementById('markdown-preview-body');
-      if (!body || !this.editor) return;
-      if (!this.isMarkdown() || this.mode === 'off') return;
-      const source = this.editor.getValue();
-      const scroll = body.scrollTop;
-      if (!source.trim()) {
-        body.innerHTML = '<p class="markdown-preview-empty">Nothing to preview</p>';
-      } else {
-        body.innerHTML = renderMarkdown(source);
-      }
-      body.scrollTop = scroll;
-    }
-  };
-
   function registerWithMonaco(monaco) {
     monaco.languages.registerDocumentFormattingEditProvider('markdown', {
       provideDocumentFormattingEdits(model) {
@@ -738,7 +616,6 @@
     parseInline,
     isSafeUrl,
     detection,
-    preview,
     registerWithMonaco
   };
 
