@@ -327,7 +327,7 @@
       i++;
       const body = [];
       while (i < lines.length) {
-        const close = lines[i].match(/^ {0,3}(`{3,}|~{3,})\s*$/);
+        const close = lines[i].match(/^\s*(`{3,}|~{3,})\s*$/);
         if (close && close[1][0] === delim && close[1].length >= fenceLen) {
           i++;
           break;
@@ -335,8 +335,13 @@
         body.push(lines[i]);
         i++;
       }
+      const escaped = escapeHtml(body.join('\n'));
+      if (info.toLowerCase() === 'mermaid') {
+        parts.push(`<pre class="mermaid-source">${escaped}</pre>`);
+        return;
+      }
       const langClass = info ? ` class="language-${escapeHtml(info)}"` : '';
-      parts.push(`<pre><code${langClass}>${escapeHtml(body.join('\n'))}</code></pre>`);
+      parts.push(`<pre><code${langClass}>${escaped}</code></pre>`);
     }
 
     function takeHeading() {

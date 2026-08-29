@@ -5,6 +5,10 @@ export const {
   previewKind,
   isSvg,
   sanitizeMarkup,
+  sanitizeMermaidSvg,
+  mermaidTheme,
+  mermaidConfig,
+  renderMermaidSvg,
   buildHtmlSrcdoc,
   buildSvgSrcdoc,
   isUnsafeUrl

@@ -63,6 +63,7 @@ window.addEventListener('load', () => {
     try {
         window.__origFetch = window.fetch?.bind(window);
         window.__origWebSocket = window.WebSocket;
+        window.__origCreateElement = document.createElement.bind(document);
     } catch {}
 
     // Block various network request methods
@@ -71,7 +72,7 @@ window.addEventListener('load', () => {
     window.WebSocket = function() { throw new Error('Network requests are disabled'); };
 
     // Block dynamic script loading
-    const originalCreateElement = document.createElement;
+    const originalCreateElement = window.__origCreateElement || document.createElement.bind(document);
     document.createElement = function(tag) {
         const element = originalCreateElement.call(document, tag);
         if (tag.toLowerCase() === 'script') {
