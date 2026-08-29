@@ -728,51 +728,29 @@ function setupEventListeners() {
     // Window resize handling
     window.addEventListener('resize', () => editor.layout());
 
-    // Editor paste handling
+    function maybeDetectLanguage() {
+        if (window.liveShareRole === 'viewer') return;
+        const model = editor.getModel();
+        if (!model) return;
+        const currentLanguage = model.getLanguageId();
+        const content = model.getValue();
+        const isEmptyOrMinimal = content.trim().length < 10;
+        if (currentLanguage !== 'plaintext' && !isEmptyOrMinimal) return;
+        const detectedLanguage = languageDetector.fromContent(content);
+        if (detectedLanguage && detectedLanguage !== 'plaintext') {
+            document.getElementById('language-select').value = detectedLanguage;
+            monaco.editor.setModelLanguage(model, detectedLanguage);
+        }
+    }
+
     editor.onDidPaste(() => {
-        setTimeout(() => {
-            // Skip auto-detection if in live share viewer mode
-            if (window.liveShareRole === 'viewer') return;
-            
-            const currentLanguage = editor.getModel().getLanguageId();
-            const content = editor.getValue();
-            
-            // Only detect language if:
-            // 1. Current selection is 'plaintext', OR
-            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
-            const isEmptyOrMinimal = content.trim().length < 10;
-            
-            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
-                const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage && detectedLanguage !== 'plaintext') {
-                    document.getElementById('language-select').value = detectedLanguage;
-                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
-                }
-            }
-        }, 100);
+        setTimeout(maybeDetectLanguage, 100);
     });
 
-    // Editor content change handling
     editor.onDidChangeModelContent((e) => {
-        if (e.isFlush) {
-            // Skip auto-detection if in live share viewer mode
-            if (window.liveShareRole === 'viewer') return;
-            
-            const currentLanguage = editor.getModel().getLanguageId();
-            const content = editor.getValue();
-            
-            // Only detect language if:
-            // 1. Current selection is 'plaintext', OR  
-            // 2. Editor is empty or nearly empty (suggesting fresh start/full replacement)
-            const isEmptyOrMinimal = content.trim().length < 10;
-            
-            if (currentLanguage === 'plaintext' || isEmptyOrMinimal) {
-                const detectedLanguage = languageDetector.fromContent(content);
-                if (detectedLanguage && detectedLanguage !== 'plaintext') {
-                    document.getElementById('language-select').value = detectedLanguage;
-                    monaco.editor.setModelLanguage(editor.getModel(), detectedLanguage);
-                }
-            }
+        const added = (e.changes || []).reduce((n, change) => n + (change.text ? change.text.length : 0), 0);
+        if (e.isFlush || added >= 40) {
+            setTimeout(maybeDetectLanguage, 100);
         }
     });
 
