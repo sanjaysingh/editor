@@ -4,7 +4,8 @@ A lightweight, browser-based code editor that works completely offline — with 
 
 ## ✨ What it does
 
-- **Syntax highlighting** for 18+ languages (JavaScript, Python, CSS, HTML, and more)
+- **Syntax highlighting** for 18+ languages (JavaScript, Python, CSS, HTML, Markdown, and more)
+- **Markdown preview** with live split and preview-only views
 - **Code formatting** with one click
 - **Multiple themes** (dark, light, high contrast)
 - **Drag & drop files** to open them instantly
@@ -35,7 +36,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 1. Open the editor in your browser
 2. Drag & drop a file or use the open button
 3. Select your language from the dropdown
-4. Start coding
+4. Start coding — Markdown files (`.md`, `.markdown`, and similar) open with a live preview; use the preview button or Ctrl+Shift+M to cycle split / preview / editor
 
 ---
 
