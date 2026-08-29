@@ -6,6 +6,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 
 - **Syntax highlighting** for 18+ languages (JavaScript, Python, CSS, HTML, Markdown, and more)
 - **Markdown, HTML, and SVG preview** with live split and preview-only views
+- **Mermaid diagrams** in Markdown preview (fenced `mermaid` code blocks)
 - **Code formatting** with one click
 - **Multiple themes** (dark, light, high contrast)
 - **Drag & drop files** to open them instantly
@@ -36,7 +37,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 1. Open the editor in your browser
 2. Drag & drop a file or use the open button
 3. Select your language from the dropdown
-4. Start coding — Markdown (`.md`), HTML, and SVG files open with a live preview; use the preview button or Ctrl+Shift+M to cycle split / preview / editor. HTML and SVG run in a sandboxed frame with scripts blocked.
+4. Start coding — Markdown (`.md`), HTML, and SVG files open with a live preview; use the preview button or Ctrl+Shift+M to cycle split / preview / editor. Fenced `mermaid` blocks render as diagrams. HTML and SVG run in a sandboxed frame with scripts blocked.
 
 ---
 

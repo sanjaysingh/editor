@@ -3,6 +3,10 @@ import {
   previewKind,
   isSvg,
   sanitizeMarkup,
+  sanitizeMermaidSvg,
+  mermaidTheme,
+  mermaidConfig,
+  renderMermaidSvg,
   buildHtmlSrcdoc,
   buildSvgSrcdoc,
   isUnsafeUrl
@@ -74,5 +78,48 @@ describe('HTML/SVG sanitizer', () => {
     expect(doc).toContain('circle');
     expect(doc).not.toMatch(/onload/i);
     expect(doc).toContain('script-src \'none\'');
+  });
+});
+
+describe('Mermaid preview helpers', () => {
+  it('maps editor themes to mermaid themes', () => {
+    expect(mermaidTheme('vs-dark')).toBe('dark');
+    expect(mermaidTheme('hc-black')).toBe('dark');
+    expect(mermaidTheme('vs')).toBe('default');
+    expect(mermaidTheme('hc-light')).toBe('default');
+  });
+
+  it('locks mermaid to strict security and no auto-start', () => {
+    const config = mermaidConfig('vs-dark');
+    expect(config.securityLevel).toBe('strict');
+    expect(config.startOnLoad).toBe(false);
+    expect(config.theme).toBe('dark');
+    expect(config.flowchart.htmlLabels).toBe(false);
+  });
+
+  it('strips scripts and handlers from mermaid SVG without dropping foreignObject', () => {
+    const svg = sanitizeMermaidSvg(
+      '<svg><script>alert(1)</script><g onclick="alert(1)"><foreignObject><div>label</div></foreignObject></g></svg>'
+    );
+    expect(svg).not.toMatch(/<script/i);
+    expect(svg).not.toMatch(/onclick/i);
+    expect(svg).toContain('foreignObject');
+    expect(svg).toContain('label');
+  });
+
+  it('renders mermaid SVG through the sanitizer', async () => {
+    const mermaid = {
+      render: async (id, source) => ({
+        svg: `<svg id="${id}"><script>alert(1)</script><text>${source}</text></svg>`
+      })
+    };
+    const svg = await renderMermaidSvg('flowchart TD; A-->B', mermaid, { id: 't1' });
+    expect(svg).toContain('id="t1"');
+    expect(svg).toContain('flowchart TD; A-->B');
+    expect(svg).not.toMatch(/<script/i);
+  });
+
+  it('rejects empty mermaid sources', async () => {
+    await expect(renderMermaidSvg('   ', { render: async () => ({ svg: '<svg/>' }) })).rejects.toThrow('Empty diagram');
   });
 });

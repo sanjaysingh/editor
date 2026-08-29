@@ -406,6 +406,46 @@ select {
     background: #f6f8fa;
 }
 
+.markdown-body .mermaid-diagram {
+    margin: 0 0 1em;
+    overflow: auto;
+    text-align: center;
+    padding: 8px 4px;
+}
+
+.markdown-body .mermaid-diagram svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.markdown-body pre.mermaid-source,
+.markdown-body pre.mermaid-unavailable {
+    white-space: pre-wrap;
+}
+
+.markdown-body .mermaid-error {
+    margin: 0 0 1em;
+    padding: 12px 16px;
+    border: 1px solid #f85149;
+    border-radius: 6px;
+    background: rgba(248, 81, 73, 0.08);
+}
+
+.markdown-body .mermaid-error p {
+    margin: 0 0 0.75em;
+    color: #f85149;
+    font-size: 0.9em;
+}
+
+#preview-pane[data-theme="vs"] .markdown-body .mermaid-error p,
+#preview-pane[data-theme="hc-light"] .markdown-body .mermaid-error p {
+    color: #cf222e;
+}
+
+.markdown-body .mermaid-error pre {
+    margin: 0;
+}
+
 .markdown-body img {
     max-width: 100%;
     height: auto;

@@ -94,6 +94,145 @@
     return sanitizeWithRegex(markup);
   }
 
+  const MERMAID_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.15.0/mermaid.min.js';
+  let mermaidLoader = null;
+
+  function mermaidTheme(theme) {
+    return (theme === 'vs' || theme === 'hc-light') ? 'default' : 'dark';
+  }
+
+  function mermaidConfig(theme) {
+    const light = mermaidTheme(theme) === 'default';
+    return {
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: light ? 'default' : 'dark',
+      darkMode: !light,
+      fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+      flowchart: { htmlLabels: false, useMaxWidth: true },
+      sequence: { useMaxWidth: true },
+      class: { htmlLabels: false, useMaxWidth: true },
+      state: { useMaxWidth: true },
+      er: { useMaxWidth: true },
+      gantt: { useMaxWidth: true },
+      pie: { useMaxWidth: true },
+      gitGraph: { useMaxWidth: true }
+    };
+  }
+
+  function sanitizeMermaidSvg(svg) {
+    let out = String(svg || '');
+    out = out.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+    out = out.replace(/<script\b[^>]*\/?>/gi, '');
+    out = out.replace(/<(iframe|object|embed|applet|frame|frameset|base|link|template)\b[^>]*>[\s\S]*?<\/\1>/gi, '');
+    out = out.replace(/<(iframe|object|embed|applet|frame|frameset|base|link|template|meta)\b[^>]*\/?>/gi, '');
+    out = out.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+    out = out.replace(/\s(href|src|xlink:href|action)\s*=\s*(["'])\s*(javascript|vbscript|data\s*:text)[^"']*\2/gi, ' $1="#"');
+    out = out.replace(/(javascript|vbscript)\s*:/gi, 'blocked:');
+    return out;
+  }
+
+  function loadMermaidLibrary() {
+    if (root.mermaid && typeof root.mermaid.render === 'function') {
+      return Promise.resolve(root.mermaid);
+    }
+    if (mermaidLoader) return mermaidLoader;
+    mermaidLoader = new Promise((resolve, reject) => {
+      if (typeof document === 'undefined') {
+        mermaidLoader = null;
+        reject(new Error('Mermaid requires a document'));
+        return;
+      }
+      const create = root.__origCreateElement || document.createElement.bind(document);
+      const script = create('script');
+      script.src = MERMAID_SRC;
+      script.async = true;
+      script.onload = () => {
+        if (root.mermaid && typeof root.mermaid.render === 'function') {
+          resolve(root.mermaid);
+        } else {
+          mermaidLoader = null;
+          reject(new Error('Mermaid failed to initialize'));
+        }
+      };
+      script.onerror = () => {
+        mermaidLoader = null;
+        reject(new Error('Mermaid failed to load'));
+      };
+      (document.head || document.documentElement).appendChild(script);
+    });
+    return mermaidLoader;
+  }
+
+  async function renderMermaidSvg(source, mermaid, { id } = {}) {
+    const text = String(source || '').trim();
+    if (!text) throw new Error('Empty diagram');
+    const renderId = id || `mermaid-preview-${Math.random().toString(36).slice(2, 10)}`;
+    const result = await mermaid.render(renderId, text);
+    const svg = result && result.svg ? result.svg : '';
+    if (!svg) throw new Error('Empty SVG');
+    return sanitizeMermaidSvg(svg);
+  }
+
+  function mermaidErrorElement(source) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mermaid-error';
+    wrap.setAttribute('role', 'alert');
+    const msg = document.createElement('p');
+    msg.textContent = 'Unable to render Mermaid diagram';
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.textContent = String(source || '');
+    pre.appendChild(code);
+    wrap.appendChild(msg);
+    wrap.appendChild(pre);
+    return wrap;
+  }
+
+  function markMermaidUnavailable(el) {
+    el.classList.add('mermaid-unavailable');
+    el.setAttribute('title', 'Mermaid library could not be loaded');
+  }
+
+  async function hydrateMermaidBlocks(container, theme, isStale) {
+    if (!container || typeof container.querySelectorAll !== 'function') return;
+    const blocks = [...container.querySelectorAll('pre.mermaid-source')];
+    if (!blocks.length) return;
+    let mermaid;
+    try {
+      mermaid = await loadMermaidLibrary();
+    } catch {
+      if (isStale && isStale()) return;
+      blocks.forEach((el) => markMermaidUnavailable(el));
+      return;
+    }
+    if (isStale && isStale()) return;
+    try { mermaid.initialize(mermaidConfig(theme)); } catch {}
+    let n = 0;
+    for (const el of blocks) {
+      if (isStale && isStale()) return;
+      if (!el.isConnected) continue;
+      const source = el.textContent;
+      n += 1;
+      const id = `mermaid-preview-${n}-${Math.random().toString(36).slice(2, 8)}`;
+      try {
+        const svg = await renderMermaidSvg(source, mermaid, { id });
+        if (isStale && isStale()) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'mermaid-diagram';
+        wrap.setAttribute('role', 'img');
+        wrap.innerHTML = svg;
+        el.replaceWith(wrap);
+      } catch {
+        if (isStale && isStale()) return;
+        el.replaceWith(mermaidErrorElement(source));
+      } finally {
+        const leftover = typeof document !== 'undefined' ? document.getElementById(`d${id}`) : null;
+        if (leftover) leftover.remove();
+      }
+    }
+  }
+
   function themeColors(theme) {
     if (theme === 'vs' || theme === 'hc-light') {
       return { bg: theme === 'hc-light' ? '#ffffff' : '#f6f8fa', text: '#1f2328' };
@@ -143,6 +282,7 @@
     observer: null,
     theme: 'vs-dark',
     lastKind: null,
+    renderGeneration: 0,
 
     attach(editor) {
       this.editor = editor;
@@ -283,10 +423,15 @@
         if (body) {
           body.hidden = false;
           const scroll = body.scrollTop;
+          const gen = ++this.renderGeneration;
           body.innerHTML = (root.MarkdownSupport && root.MarkdownSupport.render)
             ? root.MarkdownSupport.render(source)
             : '';
           body.scrollTop = scroll;
+          const theme = this.theme;
+          hydrateMermaidBlocks(body, theme, () => gen !== this.renderGeneration).then(() => {
+            if (gen === this.renderGeneration) body.scrollTop = scroll;
+          }).catch(() => {});
         }
         return;
       }
@@ -307,6 +452,11 @@
     previewKind,
     isSvg,
     sanitizeMarkup,
+    sanitizeMermaidSvg,
+    mermaidTheme,
+    mermaidConfig,
+    renderMermaidSvg,
+    hydrateMermaidBlocks,
     buildHtmlSrcdoc,
     buildSvgSrcdoc,
     isUnsafeUrl

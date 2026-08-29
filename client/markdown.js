@@ -335,8 +335,13 @@
         body.push(lines[i]);
         i++;
       }
+      const escaped = escapeHtml(body.join('\n'));
+      if (info.toLowerCase() === 'mermaid') {
+        parts.push(`<pre class="mermaid-source">${escaped}</pre>`);
+        return;
+      }
       const langClass = info ? ` class="language-${escapeHtml(info)}"` : '';
-      parts.push(`<pre><code${langClass}>${escapeHtml(body.join('\n'))}</code></pre>`);
+      parts.push(`<pre><code${langClass}>${escaped}</code></pre>`);
     }
 
     function takeHeading() {
