@@ -61,16 +61,71 @@
     await Promise.all(workerUrls().map((url) => load(url, { mode: 'cors', credentials: 'omit' }).catch(() => null)));
   }
 
+  function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  function workerResourcesLoaded() {
+    if (typeof performance === 'undefined' || !performance.getEntriesByType) return false;
+    const loaded = new Set(performance.getEntriesByType('resource').map((entry) => entry.name));
+    return workerUrls().every((url) => loaded.has(url));
+  }
+
+  async function waitForWorkers(timeoutMs = 8000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (workerResourcesLoaded()) return true;
+      await delay(50);
+    }
+    return workerResourcesLoaded();
+  }
+
+  async function waitUntilNetworkSettled(quietMs = 400, timeoutMs = 8000) {
+    if (typeof performance === 'undefined' || !performance.getEntriesByType) {
+      await delay(quietMs);
+      return;
+    }
+    const start = Date.now();
+    let last = performance.getEntriesByType('resource').length;
+    let quiet = 0;
+    while (Date.now() - start < timeoutMs) {
+      await delay(50);
+      const count = performance.getEntriesByType('resource').length;
+      if (count === last) {
+        quiet += 50;
+        if (quiet >= quietMs) return;
+      } else {
+        last = count;
+        quiet = 0;
+      }
+    }
+  }
+
   function warmWorkers(monacoApi) {
     if (!monacoApi?.editor?.createModel) return [];
     return WORKER_LANGUAGES.map((language) => monacoApi.editor.createModel('', language));
   }
 
-  async function preload({ requireFn, fetchFn, monacoApi, languageIds } = {}) {
+  async function activateLanguages(monacoApi, model, languageIds) {
+    if (!monacoApi?.editor?.setModelLanguage || !model) return;
+    const ids = (languageIds || []).filter((id) => id && id !== 'plaintext');
+    for (const language of ids) {
+      monacoApi.editor.setModelLanguage(model, language);
+      await delay(0);
+    }
+    monacoApi.editor.setModelLanguage(model, 'plaintext');
+  }
+
+  async function preload({ requireFn, fetchFn, monacoApi, languageIds, editor } = {}) {
     const ids = languageIds || Object.keys(LANGUAGE_MODULES);
     await requireModules(requireFn, modulesFor(ids));
     await prefetchWorkers(fetchFn);
-    return warmWorkers(monacoApi);
+    const models = warmWorkers(monacoApi);
+    const model = editor?.getModel?.() || models[0];
+    await activateLanguages(monacoApi, model, ids);
+    await waitForWorkers();
+    await waitUntilNetworkSettled();
+    return models;
   }
 
   const api = {
@@ -81,7 +136,8 @@
     WORKER_LANGUAGES,
     modulesFor,
     workerUrls,
-    preload
+    preload,
+    waitForWorkers
   };
   root.MonacoPreload = api;
   if (typeof module !== 'undefined' && module.exports) {

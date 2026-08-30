@@ -693,10 +693,10 @@ async function preloadEditorAssets() {
         requireFn: require,
         fetchFn: window.__origFetch || window.fetch?.bind(window),
         monacoApi: monaco,
-        languageIds: Object.keys(supportedLanguages)
+        languageIds: Object.keys(supportedLanguages),
+        editor
     });
     window.__monacoWarmModels = models;
-    await new Promise((resolve) => setTimeout(resolve, 150));
 }
 
 // Create a status bar with additional information
