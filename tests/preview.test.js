@@ -1,4 +1,7 @@
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import {
   previewKind,
   isSvg,
@@ -6,11 +9,16 @@ import {
   sanitizeMermaidSvg,
   mermaidTheme,
   mermaidConfig,
+  loadMermaidLibrary,
   renderMermaidSvg,
   buildHtmlSrcdoc,
   buildSvgSrcdoc,
   isUnsafeUrl
 } from './load-preview.mjs';
+
+const clientDir = join(dirname(fileURLToPath(import.meta.url)), '../client');
+const previewSrc = readFileSync(join(clientDir, 'preview.js'), 'utf-8');
+const indexHtml = readFileSync(join(clientDir, 'index.html'), 'utf-8');
 
 describe('previewKind', () => {
   it('selects markdown, html, and svg', () => {
@@ -121,6 +129,20 @@ describe('Mermaid preview helpers', () => {
 
   it('rejects empty mermaid sources', async () => {
     await expect(renderMermaidSvg('   ', { render: async () => ({ svg: '<svg/>' }) })).rejects.toThrow('Empty diagram');
+  });
+
+  it('loads Mermaid when the app opens instead of fetching it on first diagram', () => {
+    expect(indexHtml).toMatch(/id="mermaid-lib"/);
+    expect(indexHtml).toMatch(/cdnjs\.cloudflare\.com\/ajax\/libs\/mermaid\/11\.15\.0\/mermaid\.min\.js/);
+    expect(indexHtml).toContain('rel="preload"');
+    expect(indexHtml).toContain('mermaid.min.js');
+    expect(previewSrc).not.toMatch(/MERMAID_SRC/);
+    expect(previewSrc).not.toMatch(/script\.src\s*=/);
+    expect(previewSrc).not.toMatch(/__origCreateElement/);
+  });
+
+  it('does not inject a Mermaid script if the page-load copy is missing', async () => {
+    await expect(loadMermaidLibrary()).rejects.toThrow(/not available|document/i);
   });
 
   it('retries mermaid render after a failed parse', async () => {

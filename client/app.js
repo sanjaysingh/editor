@@ -57,21 +57,21 @@ const editorSettings = {
     useTabStops: true
 };
 
-// Security measures - block network requests
-window.addEventListener('load', () => {
-    // Preserve originals for live-share module before blocking
-    try {
-        window.__origFetch = window.fetch?.bind(window);
-        window.__origWebSocket = window.WebSocket;
-        window.__origCreateElement = document.createElement.bind(document);
-    } catch {}
+// Preserve network APIs for Live Share and for the startup preload.
+// The actual lock happens after Monaco language packs have finished loading.
+try {
+    window.__origFetch = window.fetch?.bind(window);
+    window.__origWebSocket = window.WebSocket;
+    window.__origCreateElement = document.createElement.bind(document);
+} catch {}
 
-    // Block various network request methods
+function lockNetworkExceptLiveShare() {
+    if (window.__networkLocked) return;
+    window.__networkLocked = true;
     window.fetch = () => Promise.reject(new Error('Network requests are disabled'));
     window.XMLHttpRequest = function() { throw new Error('Network requests are disabled'); };
     window.WebSocket = function() { throw new Error('Network requests are disabled'); };
 
-    // Block dynamic script loading
     const originalCreateElement = window.__origCreateElement || document.createElement.bind(document);
     document.createElement = function(tag) {
         const element = originalCreateElement.call(document, tag);
@@ -82,8 +82,9 @@ window.addEventListener('load', () => {
         }
         return element;
     };
-    
-    // Populate dropdowns
+}
+
+window.addEventListener('load', () => {
     populateLanguageDropdown();
     populateThemeDropdown();
 });
@@ -127,14 +128,20 @@ function populateThemeDropdown() {
 
 // Initialize Monaco Editor
 const loadMonaco = () => {
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs/loader.js';
-    script.onload = () => {
-        require.config({
-            paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs' }
-        });
+    const vs = (typeof MonacoPreload !== 'undefined' && MonacoPreload.MONACO_VS)
+        ? MonacoPreload.MONACO_VS
+        : 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.52.2/min/vs';
+    const start = () => {
+        require.config({ paths: { vs } });
         require(['vs/editor/editor.main'], initializeEditor);
     };
+    if (typeof require === 'function') {
+        start();
+        return;
+    }
+    const script = (window.__origCreateElement || document.createElement.bind(document))('script');
+    script.src = `${vs}/loader.js`;
+    script.onload = start;
     document.body.appendChild(script);
 };
 
@@ -659,6 +666,11 @@ function initializeEditor() {
         window.liveShareFlushPending();
     }
 
+    preloadEditorAssets().finally(() => {
+        lockNetworkExceptLiveShare();
+        window.__editorAssetsReady = true;
+    });
+
     // Set up event listeners
     setupEventListeners();
     
@@ -673,6 +685,18 @@ function initializeEditor() {
             padding: { top: 10, bottom: 10 }
         });
     }
+}
+
+async function preloadEditorAssets() {
+    if (typeof MonacoPreload === 'undefined' || typeof require !== 'function') return;
+    const models = await MonacoPreload.preload({
+        requireFn: require,
+        fetchFn: window.__origFetch || window.fetch?.bind(window),
+        monacoApi: monaco,
+        languageIds: Object.keys(supportedLanguages),
+        editor
+    });
+    window.__monacoWarmModels = models;
 }
 
 // Create a status bar with additional information
