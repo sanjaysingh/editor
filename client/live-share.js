@@ -178,13 +178,65 @@
     window.liveShareRole = role;
   }
 
+  function refreshPreview(){
+    const preview = (typeof PreviewSupport !== 'undefined') ? PreviewSupport.preview : null;
+    if (!preview) return;
+    if (typeof preview.syncLanguage === 'function') {
+      preview.syncLanguage();
+      return;
+    }
+    if (typeof preview.schedule === 'function') preview.schedule();
+  }
+
+  function setEditorLanguage(language){
+    const ed = getEditor();
+    const model = ed?.getModel?.();
+    if (model && typeof monaco !== 'undefined' && monaco.editor?.setModelLanguage) {
+      monaco.editor.setModelLanguage(model, language);
+    }
+    const langSelect = document.getElementById('language-select');
+    if (langSelect) langSelect.value = language;
+  }
+
+  let pendingState = null;
+
+  function applyEditorState(content, language){
+    const ed = getEditor();
+    if (!ed) {
+      pendingState = { content, language };
+      return false;
+    }
+    pendingState = null;
+    const utils = typeof LiveShareUtils !== 'undefined' ? LiveShareUtils : null;
+    if (utils?.applySharedEditorState) {
+      return utils.applySharedEditorState(ed, content, language, {
+        setLanguage: setEditorLanguage,
+        refreshPreview
+      });
+    }
+    if (typeof content === 'string' && ed.getValue() !== content) {
+      const pos = ed.getScrollTop();
+      ed.setValue(content);
+      ed.setScrollTop(pos);
+    }
+    if (language && ed.getModel()?.getLanguageId() !== language) {
+      setEditorLanguage(language);
+    }
+    refreshPreview();
+    return true;
+  }
+
+  window.liveShareFlushPending = function(){
+    if (!pendingState) return;
+    applyEditorState(pendingState.content, pendingState.language);
+  };
+
   function openShareModal(key, encryptionKey){
     shareKeyEl.textContent = key;
-    // Generate share link using current page's base path
-    const currentUrl = new URL(location.href);
-    const basePath = currentUrl.pathname.replace(/\/[^\/]*$/, '/'); // Remove filename, keep directory
-    const link = `${currentUrl.origin}${basePath}?share=${encodeURIComponent(key)}&e=1`;
-    shareLinkEl.value = link;
+    const utils = typeof LiveShareUtils !== 'undefined' ? LiveShareUtils : null;
+    shareLinkEl.value = utils?.buildShareLink
+      ? utils.buildShareLink(location.href, key)
+      : `${location.origin}${location.pathname.replace(/\/[^\/]*$/, '/')}?share=${encodeURIComponent(key)}`;
     const encKeyEl = document.getElementById('share-encryption-key');
     if (encKeyEl) encKeyEl.textContent = encryptionKey || '';
     shareModal.style.display = 'flex';
@@ -286,20 +338,7 @@
       console.warn('Decryption failed', e);
       return;
     }
-    const ed = getEditor();
-    if (ed) {
-      const current = ed.getValue();
-      if (current !== content) {
-        const pos = ed.getScrollTop();
-        ed.setValue(content);
-        ed.setScrollTop(pos);
-      }
-      if (language && ed.getModel().getLanguageId() !== language) {
-        monaco.editor.setModelLanguage(ed.getModel(), language);
-        const langSelect = document.getElementById('language-select');
-        if (langSelect) langSelect.value = language;
-      }
-    }
+    applyEditorState(content, language);
     version = ver || version + 1;
   }
 
@@ -394,14 +433,8 @@
       setButtonsForRole('idle');
       return false;
     }
-    if (window.editor && typeof content === 'string') {
-      window.editor.setValue(content);
-      if (language && window.editor.getModel().getLanguageId() !== language) {
-        monaco.editor.setModelLanguage(window.editor.getModel(), language);
-        const langSelect = document.getElementById('language-select');
-        if (langSelect) langSelect.value = language;
-      }
-    }
+    if (typeof content !== 'string') return false;
+    applyEditorState(content, language);
     return true;
   }
 
@@ -573,6 +606,11 @@
 
   // Auto-join if URL has ?share=KEY — always show join modal so user can enter encryption key
   const urlParams = new URLSearchParams(location.search);
+  const utils = typeof LiveShareUtils !== 'undefined' ? LiveShareUtils : null;
+  const cleanedPath = utils?.stripLegacyShareQuery?.(location.href);
+  if (cleanedPath) {
+    try { history.replaceState(null, '', cleanedPath); } catch {}
+  }
   const initialKey = urlParams.get('share');
   const normalizedInitial = normalizeKey(initialKey);
   if (validateKey(normalizedInitial)) {
