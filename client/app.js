@@ -646,6 +646,7 @@ function initializeEditor() {
         },
         renderControlCharacters: true
     });
+    window.editor = editor;
     
     // Register keyboard shortcuts and commands
     registerCommands();
@@ -653,6 +654,9 @@ function initializeEditor() {
     if (typeof PreviewSupport !== 'undefined') {
         PreviewSupport.preview.attach(editor);
         PreviewSupport.preview.setTheme(editorSettings.theme);
+    }
+    if (typeof window.liveShareFlushPending === 'function') {
+        window.liveShareFlushPending();
     }
 
     // Set up event listeners
