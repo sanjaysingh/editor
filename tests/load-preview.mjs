@@ -8,6 +8,7 @@ export const {
   sanitizeMermaidSvg,
   mermaidTheme,
   mermaidConfig,
+  loadMermaidLibrary,
   renderMermaidSvg,
   buildHtmlSrcdoc,
   buildSvgSrcdoc,

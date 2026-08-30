@@ -6,7 +6,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 
 - **Syntax highlighting** for 18+ languages (JavaScript, Python, CSS, HTML, Markdown, and more)
 - **Markdown, HTML, and SVG preview** with live split and preview-only views
-- **Mermaid diagrams** in Markdown preview (fenced `mermaid` code blocks)
+- **Mermaid diagrams** in Markdown preview (fenced `mermaid` code blocks). Mermaid is loaded when the app opens, so diagrams still work after that even if you go offline.
 - **Code formatting** with one click
 - **Multiple themes** (dark, light, high contrast)
 - **Drag & drop files** to open them instantly

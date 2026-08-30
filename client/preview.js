@@ -94,7 +94,6 @@
     return sanitizeWithRegex(markup);
   }
 
-  const MERMAID_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/mermaid/11.15.0/mermaid.min.js';
   let mermaidLoader = null;
 
   function mermaidTheme(theme) {
@@ -132,34 +131,48 @@
     return out;
   }
 
+  function getMermaidApi() {
+    return (root.mermaid && typeof root.mermaid.render === 'function') ? root.mermaid : null;
+  }
+
+  function mermaidPageScript() {
+    if (typeof document === 'undefined') return null;
+    return document.getElementById('mermaid-lib') || document.querySelector('script[src*="mermaid"]');
+  }
+
+  // Use the copy loaded when the app opened. Never fetch a new script later —
+  // that would break offline use after the first page load.
   function loadMermaidLibrary() {
-    if (root.mermaid && typeof root.mermaid.render === 'function') {
-      return Promise.resolve(root.mermaid);
-    }
+    const ready = getMermaidApi();
+    if (ready) return Promise.resolve(ready);
     if (mermaidLoader) return mermaidLoader;
     mermaidLoader = new Promise((resolve, reject) => {
-      if (typeof document === 'undefined') {
+      const fail = (message) => {
         mermaidLoader = null;
-        reject(new Error('Mermaid requires a document'));
+        reject(new Error(message));
+      };
+      const succeed = () => {
+        const api = getMermaidApi();
+        if (api) resolve(api);
+        else fail('Mermaid failed to initialize');
+      };
+
+      const script = mermaidPageScript();
+      if (!script) {
+        fail('Mermaid is not available');
         return;
       }
-      const create = root.__origCreateElement || document.createElement.bind(document);
-      const script = create('script');
-      script.src = MERMAID_SRC;
-      script.async = true;
-      script.onload = () => {
-        if (root.mermaid && typeof root.mermaid.render === 'function') {
-          resolve(root.mermaid);
-        } else {
-          mermaidLoader = null;
-          reject(new Error('Mermaid failed to initialize'));
-        }
-      };
-      script.onerror = () => {
-        mermaidLoader = null;
-        reject(new Error('Mermaid failed to load'));
-      };
-      (document.head || document.documentElement).appendChild(script);
+      if (script.dataset.loaded === '1') {
+        succeed();
+        return;
+      }
+      if (script.dataset.error === '1') {
+        fail('Mermaid failed to load');
+        return;
+      }
+      script.addEventListener('load', succeed, { once: true });
+      script.addEventListener('error', () => fail('Mermaid failed to load'), { once: true });
+      if (getMermaidApi()) succeed();
     });
     return mermaidLoader;
   }
@@ -485,6 +498,7 @@
     sanitizeMermaidSvg,
     mermaidTheme,
     mermaidConfig,
+    loadMermaidLibrary,
     renderMermaidSvg,
     hydrateMermaidBlocks,
     buildHtmlSrcdoc,
