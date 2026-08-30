@@ -10,7 +10,7 @@ A lightweight, browser-based code editor that works completely offline — with 
 - **Code formatting** with one click
 - **Multiple themes** (dark, light, high contrast)
 - **Drag & drop files** to open them instantly
-- **Zero network requests** for the editor — everything runs locally in your browser
+- **Zero network requests** after the app opens — Monaco language packs, workers, and Mermaid load up front. After that the editor stays local; only Live Share talks to the network
 - **Optional Live Share**: broadcast your editor state to viewers in real time with end-to-end encryption (read-only for viewers)
 
 ## 🎯 Perfect for
