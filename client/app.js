@@ -437,6 +437,9 @@ function changeTheme(theme) {
     if (typeof PreviewSupport !== 'undefined') {
         PreviewSupport.preview.setTheme(theme);
     }
+    if (typeof InvisiblesSupport !== 'undefined') {
+        InvisiblesSupport.invisibles.onThemeChanged();
+    }
 }
 
 // Initialize editor
@@ -503,6 +506,9 @@ function initializeEditor() {
     if (typeof PreviewSupport !== 'undefined') {
         PreviewSupport.preview.attach(editor);
         PreviewSupport.preview.setTheme(editorSettings.theme);
+    }
+    if (typeof InvisiblesSupport !== 'undefined') {
+        InvisiblesSupport.invisibles.attach(editor);
     }
     if (typeof window.liveShareFlushPending === 'function') {
         window.liveShareFlushPending();
