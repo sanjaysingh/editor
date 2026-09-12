@@ -8,6 +8,8 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "vitest": "^2.0.0"
+    "http-server": "^14.1.1",
+    "vitest": "^2.0.0",
+    "wrangler": "^4.131.1"
   }
 }
