@@ -87,6 +87,7 @@ button:hover {
 /* Icon button styles */
 #open-file-btn,
 #format-btn,
+#invisibles-btn,
 #preview-btn,
 #start-share-btn,
 #join-share-btn,
@@ -101,6 +102,7 @@ button:hover {
 
 #open-file-btn i,
 #format-btn i,
+#invisibles-btn i,
 #preview-btn i,
 #start-share-btn i,
 #join-share-btn i {
@@ -110,6 +112,7 @@ button:hover {
 
 #open-file-btn:hover i,
 #format-btn:hover i,
+#invisibles-btn:hover i,
 #preview-btn:hover i,
 #start-share-btn:hover i,
 #join-share-btn:hover i {
@@ -473,8 +476,19 @@ select {
     margin-top: 0.35em;
 }
 
-#preview-btn[aria-pressed="true"] {
+#preview-btn[aria-pressed="true"],
+#invisibles-btn[aria-pressed="true"] {
     background: #3a4a5a;
+}
+
+.monaco-editor .eol-marker {
+    color: #808080;
+    opacity: 0.7;
+    font-size: 0.8em;
+    letter-spacing: 0.02em;
+    margin-left: 0.35em;
+    pointer-events: none;
+    user-select: none;
 }
 
 /* File input hidden by default */
@@ -562,6 +576,7 @@ select {
     
     #open-file-btn,
     #format-btn,
+    #invisibles-btn,
     #preview-btn,
     #start-share-btn,
     #join-share-btn,
