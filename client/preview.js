@@ -96,8 +96,15 @@
 
   let mermaidLoader = null;
 
+  function isLightTheme(theme) {
+    if (typeof ThemesSupport !== 'undefined' && ThemesSupport.isLightTheme) {
+      return ThemesSupport.isLightTheme(theme);
+    }
+    return theme === 'vs' || theme === 'hc-light' || theme === 'github-light';
+  }
+
   function mermaidTheme(theme) {
-    return (theme === 'vs' || theme === 'hc-light') ? 'default' : 'dark';
+    return isLightTheme(theme) ? 'default' : 'dark';
   }
 
   function mermaidConfig(theme) {
@@ -277,10 +284,16 @@
   }
 
   function themeColors(theme) {
-    if (theme === 'vs' || theme === 'hc-light') {
-      return { bg: theme === 'hc-light' ? '#ffffff' : '#f6f8fa', text: '#1f2328' };
+    if (typeof ThemesSupport !== 'undefined' && ThemesSupport.themeColors) {
+      return ThemesSupport.themeColors(theme);
+    }
+    if (theme === 'vs' || theme === 'hc-light' || theme === 'github-light') {
+      return { bg: theme === 'vs' ? '#f6f8fa' : '#ffffff', text: '#1f2328' };
     }
     if (theme === 'hc-black') return { bg: '#000000', text: '#ffffff' };
+    if (theme === 'dracula') return { bg: '#282a36', text: '#f8f8f2' };
+    if (theme === 'one-dark') return { bg: '#282c34', text: '#abb2bf' };
+    if (theme === 'github-dark') return { bg: '#24292e', text: '#e1e4e8' };
     return { bg: '#1e1e1e', text: '#d4d4d4' };
   }
 
@@ -434,7 +447,10 @@
     setTheme(theme) {
       this.theme = theme || 'vs-dark';
       const pane = document.getElementById('preview-pane');
-      if (pane) pane.setAttribute('data-theme', this.theme);
+      if (pane) {
+        pane.setAttribute('data-theme', this.theme);
+        pane.setAttribute('data-scheme', isLightTheme(this.theme) ? 'light' : 'dark');
+      }
       this.render();
     },
 

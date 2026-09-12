@@ -93,8 +93,12 @@ describe('Mermaid preview helpers', () => {
   it('maps editor themes to mermaid themes', () => {
     expect(mermaidTheme('vs-dark')).toBe('dark');
     expect(mermaidTheme('hc-black')).toBe('dark');
+    expect(mermaidTheme('dracula')).toBe('dark');
+    expect(mermaidTheme('one-dark')).toBe('dark');
+    expect(mermaidTheme('github-dark')).toBe('dark');
     expect(mermaidTheme('vs')).toBe('default');
     expect(mermaidTheme('hc-light')).toBe('default');
+    expect(mermaidTheme('github-light')).toBe('default');
   });
 
   it('locks mermaid to strict security and no auto-start', () => {

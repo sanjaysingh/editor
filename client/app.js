@@ -39,6 +39,10 @@ const supportedLanguages = {
 const editorThemes = {
     'vs-dark': 'Dark',
     'vs': 'Light',
+    'github-dark': 'GitHub Dark',
+    'github-light': 'GitHub Light',
+    'dracula': 'Dracula',
+    'one-dark': 'One Dark',
     'hc-black': 'High Contrast Dark',
     'hc-light': 'High Contrast Light'
 };
@@ -450,6 +454,10 @@ function initializeEditor() {
         MarkdownSupport.registerWithMonaco(monaco);
     }
     
+    if (typeof ThemesSupport !== 'undefined') {
+        ThemesSupport.register(monaco);
+    }
+
     // Create editor instance with improved settings
     editor = monaco.editor.create(document.getElementById('editor-container'), {
         value: '',
