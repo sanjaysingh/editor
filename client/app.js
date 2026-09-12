@@ -627,16 +627,17 @@ function setupEventListeners() {
         }
     }
 
-    editor.onDidPaste(() => {
-        setTimeout(maybeDetectLanguage, 100);
-    });
+    let detectTimer = 0;
+    function scheduleDetectLanguage() {
+        clearTimeout(detectTimer);
+        detectTimer = setTimeout(maybeDetectLanguage, 150);
+    }
 
-    editor.onDidChangeModelContent((e) => {
-        const added = (e.changes || []).reduce((n, change) => n + (change.text ? change.text.length : 0), 0);
-        if (e.isFlush || added >= 40) {
-            setTimeout(maybeDetectLanguage, 100);
-        }
-    });
+    // Mobile and some paste paths insert text without a single onDidPaste /
+    // 40+ character change. While the editor is still plaintext, debounce
+    // detection on any content change.
+    editor.onDidPaste(scheduleDetectLanguage);
+    editor.onDidChangeModelContent(scheduleDetectLanguage);
 
     // Language selection handling
     document.getElementById('language-select').addEventListener('change', (e) => {

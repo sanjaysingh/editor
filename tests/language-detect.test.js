@@ -212,5 +212,7 @@ describe('editor wiring', () => {
     expect(indexHtml.indexOf('language-detect.js')).toBeGreaterThan(-1);
     expect(indexHtml.indexOf('language-detect.js')).toBeLessThan(indexHtml.indexOf('app.js'));
     expect(appSrc).toContain('LanguageDetect');
+    expect(appSrc).toContain('scheduleDetectLanguage');
+    expect(appSrc).not.toMatch(/added\s*>=\s*40/);
   });
 });
